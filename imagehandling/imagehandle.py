@@ -34,4 +34,9 @@ class ImageHandling:
         data = self.extract_text_from_images()
         for key, value in data.items():
             with open(key.rstrip('jpg') + 'txt', 'w') as file:
-                file.write(' '.join(re.sub(r'[^a-zA-ZА-Яа-я0-9\s]', '', value).split()))
+                x = value.replace(' ', '')
+                print(x, len(x))
+                if len(x) > 0:
+                    file.write(' '.join(re.sub(r'[^a-zA-ZА-Яа-я0-9\s]', '', value).split()))
+                else:
+                    continue
