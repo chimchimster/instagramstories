@@ -104,10 +104,6 @@ def main():
     # Migration
     db.send_to_table('attachments', ('account_id', 'type', 'path',), collection_to_send)
 
-    # print(os.getcwd())
-    # os.chdir('/home/newuser/work_artem/instagramstories/media')
-    # print(os.getcwd())
-
 
 if __name__ == '__main__':
     main()
