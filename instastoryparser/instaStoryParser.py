@@ -6,13 +6,12 @@ import instagramstories.accounts.get_accs, instagramstories.accounts.get_cred
 import instagramstories.db_init.database
 
 from instagramstories.logs.logger_init import LoggerWarn
-from instagramstories import settings
+
 
 PATH_TO_ACCOUNTS = '/home/newuser/work_artem/instagramstories/accounts/account_for_parse.txt'
 PATH_TO_CREDENTIALS = '/home/newuser/work_artem/instagramstories/accounts/credentials.txt'
 logger_warning = LoggerWarn()
-print(instagramstories.accounts.get_cred.get_credentials(PATH_TO_CREDENTIALS))
-print(instagramstories.accounts.get_accs.get_accounts(PATH_TO_ACCOUNTS))
+
 
 def main():
     db = instagramstories.db_init.database.DataBase('stories')
@@ -39,11 +38,12 @@ def main():
                     'credentials_id int PRIMARY KEY AUTO_INCREMENT',
                     'login VARCHAR(255)',
                     'password VARCHAR(255)',
+                    'status VARCHAR(255)'
                     )
 
     # Fill table credentials with initial data
     try:
-        db.send_to_table('credentials', ('login', 'password',), instagramstories.accounts.get_cred.get_credentials(PATH_TO_CREDENTIALS))
+        db.send_to_table('credentials', ('login', 'password', 'status'), instagramstories.accounts.get_cred.get_credentials(PATH_TO_CREDENTIALS))
     except Exception:
         logger_warning.logger.exception('There is no accounts to send!')
 
@@ -56,21 +56,42 @@ def main():
     # Get accounts for parse from database
     instagram_accounts = [account[0] for account in db.get_data_for_parse('account', 'accounts')]
 
-    # Get random credentials from database
-    credentials = []
-
     if not instagram_accounts:
         raise logger_warning.logger.exception('There is no account to parse!')
 
-    def login(account, password):
+    def login_handle():
+        # Store credentials which were already in use
+        used_credentials = set()
+
+        # Get length of table Credentials which elements' status is "stream_"
+        table_length = db.get_length_of_table('credentials', 'credentials_id')
+
+        # Get random credential from database
+        credential = db.get_account_credentials('credentials')
+
+        while len(used_credentials) < table_length:
+            if credential not in used_credentials:
+                # Mark used credential
+                used_credentials.add(credential)
+
+                # Login into account
+                username, password = credential
+                login(username, password)
+
+                # Collect StoryItems while being logged-in
+                collect_data()
+            else:
+                credential = db.get_account_credentials('credentials')
+
+    def login(username, password):
         try:
             # Trying to sign in into user's account
-            signin = instagramstories.instaloader_init.loader_init.SignIn(account, password)
+            signin = instagramstories.instaloader_init.loader_init.SignIn(username, password)
             signin.sign_in()
-        except:
-            raise logger_warning.logger.exception('Account might be restricted')
+        except Exception:
+            raise logger_warning.logger.exception(f'Account {username} might be restricted')
 
-    collection_to_send = []
+
     def collect_data():
         data_to_db = {}
 
@@ -103,7 +124,7 @@ def main():
                             data_to_db[account]['path_photo'].append(os.getcwd() + directory_of_account + file)
             except Exception:
                 logger_warning.logger.exception('Account responded with status code 404 or does not have StoryItems '
-                                                'at all')
+                                                'to load')
 
             for account, data in data_to_db.items():
                 account_id = db.get_account_id(account)
@@ -116,12 +137,14 @@ def main():
                         elif path == 'path_text':
                             collection_to_send.append([account_id, 3, element])
 
-    # Initial login
-    #login()
-    #collect_data()
+    # Initiate collection which will be sent to database
+    collection_to_send = []
 
-    # Migration
-    #db.send_to_table('attachments', ('account_id', 'type', 'path',), collection_to_send)
+    # Maintain parser log-in and collecting data logic
+    login_handle()
+
+    # Migration to database
+    db.send_to_table('attachments', ('account_id', 'type', 'path',), collection_to_send)
 
 
 if __name__ == '__main__':
