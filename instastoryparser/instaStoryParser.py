@@ -2,15 +2,17 @@ import os
 
 import instagramstories.instaloader_init.loader_init
 import instagramstories.imagehandling.imagehandle
-import instagramstories.accounts.get_accs
+import instagramstories.accounts.get_accs, instagramstories.accounts.get_cred
 import instagramstories.db_init.database
 
 from instagramstories.logs.logger_init import LoggerWarn
-
+from instagramstories import settings
 
 PATH_TO_ACCOUNTS = '/home/newuser/work_artem/instagramstories/accounts/account_for_parse.txt'
+PATH_TO_CREDENTIALS = '/home/newuser/work_artem/instagramstories/accounts/credentials.txt'
 logger_warning = LoggerWarn()
-
+print(instagramstories.accounts.get_cred.get_credentials(PATH_TO_CREDENTIALS))
+print(instagramstories.accounts.get_accs.get_accounts(PATH_TO_ACCOUNTS))
 
 def main():
     db = instagramstories.db_init.database.DataBase('stories')
@@ -32,6 +34,19 @@ def main():
                     'path TEXT NOT NULL',
                     )
 
+    # Creating table credentials
+    db.create_table('credentials',
+                    'credentials_id int PRIMARY KEY AUTO_INCREMENT',
+                    'login VARCHAR(255)',
+                    'password VARCHAR(255)',
+                    )
+
+    # Fill table credentials with initial data
+    try:
+        db.send_to_table('credentials', ('login', 'password',), instagramstories.accounts.get_cred.get_credentials(PATH_TO_CREDENTIALS))
+    except Exception:
+        logger_warning.logger.exception('There is no accounts to send!')
+
     # Fill table accounts with initial data
     try:
         db.send_to_table('accounts', ('account',), instagramstories.accounts.get_accs.get_accounts(PATH_TO_ACCOUNTS))
@@ -41,13 +56,16 @@ def main():
     # Get accounts for parse from database
     instagram_accounts = [account[0] for account in db.get_data_for_parse('account', 'accounts')]
 
+    # Get random credentials from database
+    credentials = []
+
     if not instagram_accounts:
         raise logger_warning.logger.exception('There is no account to parse!')
 
-    def login():
+    def login(account, password):
         try:
             # Trying to sign in into user's account
-            signin = instagramstories.instaloader_init.loader_init.SignIn('manuelmathias92', 'iFppGcu4')
+            signin = instagramstories.instaloader_init.loader_init.SignIn(account, password)
             signin.sign_in()
         except:
             raise logger_warning.logger.exception('Account might be restricted')
@@ -84,7 +102,8 @@ def main():
                         elif file.endswith('.jpg'):
                             data_to_db[account]['path_photo'].append(os.getcwd() + directory_of_account + file)
             except Exception:
-                logger_warning.logger.exception('Account responded with status code 404 or does not have StoryItems at all')
+                logger_warning.logger.exception('Account responded with status code 404 or does not have StoryItems '
+                                                'at all')
 
             for account, data in data_to_db.items():
                 account_id = db.get_account_id(account)
@@ -97,14 +116,15 @@ def main():
                         elif path == 'path_text':
                             collection_to_send.append([account_id, 3, element])
 
-    login()
-    collect_data()
+    # Initial login
+    #login()
+    #collect_data()
 
     # Migration
-    db.send_to_table('attachments', ('account_id', 'type', 'path',), collection_to_send)
+    #db.send_to_table('attachments', ('account_id', 'type', 'path',), collection_to_send)
 
 
 if __name__ == '__main__':
     main()
-
+    ...
 

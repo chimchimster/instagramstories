@@ -1,12 +1,15 @@
+from typing import Optional, List
 from mysql.connector import connect, Error
 from instagramstories.logs.logger_init import LoggerWarn
+
+from instagramstories import settings
 
 def db_decorator(func):
     def wrapper(*args, **kwargs):
         con = connect(
             host='localhost',
-            user='root',
-            password='QweQwe123'
+            user=settings.mysql_account['login'],
+            password=settings.mysql_account['password'],
         )
         try:
             result = func(*args, connection=con, *kwargs)
@@ -75,3 +78,15 @@ class DataBase:
         cursor.execute(f'SELECT account_id FROM accounts WHERE account = "{args[0]}";')
 
         return min([item[0] for item in cursor.fetchall()])
+
+    @db_decorator
+    def get_account_credentials(self, *args, table_name: str, username: str, password: str, status: str = 'stream_',  **kwargs) -> Optional[List]:
+        connection = kwargs.pop('connection')
+        cursor = connection.cursor()
+
+        cursor.execute(f"USE {self.db_name}")
+        cursor.execute(f'SELECT {username}, {password} FROM {table_name} WHERE status = "{status}" ORDER BY RAND() LIMIT 1;')
+
+        return [item for item in cursor.fetchall()]
+
+
