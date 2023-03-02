@@ -33,10 +33,11 @@ class ImageHandling:
     def create_txt_files(self):
         data = self.extract_text_from_images()
         for key, value in data.items():
-            with open(key.rstrip('jpg') + 'txt', 'w') as file:
-                x = value.replace(' ', '')
-                print(x, len(x))
-                if len(x) > 0:
+            value = value.rstrip(' ')
+            if value:
+                with open(key.rstrip('jpg') + 'txt', 'w') as file:
+                    value = value.rstrip(' ')
                     file.write(' '.join(re.sub(r'[^a-zA-ZА-Яа-я0-9\s]', '', value).split()))
-                else:
-                    continue
+            else:
+                continue
+

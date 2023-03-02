@@ -1,4 +1,5 @@
 from mysql.connector import connect, Error
+from instagramstories.logs.logger_init import LoggerWarn
 
 def db_decorator(func):
     def wrapper(*args, **kwargs):
@@ -10,8 +11,7 @@ def db_decorator(func):
         try:
             result = func(*args, connection=con, *kwargs)
         except Error as e:
-            print(e)
-            print('SQL failed!')
+            LoggerWarn.logger.warning(e)
         else:
             con.commit()
             return result
