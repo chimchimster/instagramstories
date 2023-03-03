@@ -1,3 +1,4 @@
+import os
 import time
 import instaloader
 
@@ -18,7 +19,7 @@ class SignIn:
             # Login into account
             loader.login(self.username, self.password)
         except Exception:
-            print(f'Problem with signing to {self.username} account')
+            raise Exception(f'Problem with signing to {self.username} account')
 
 
 class LoadStoriesOfUser:
@@ -33,17 +34,17 @@ class LoadStoriesOfUser:
             # Simulates human behaviour
             time.sleep(15)
 
+            # Get up on level - equivalent of bash 'cd'
+            os.chdir('..' + '/media/')
+
             # Determine pattern where StoryItems have to be saved
-            loader.dirname_pattern = f'/home/newuser/work_artem/instagramstories/media/{profile.username}/stories'
+            loader.dirname_pattern = os.getcwd() + f'/{profile.username}/stories'
 
             time.sleep(15)
 
             loader.download_stories(userids=[profile.userid])
         except Exception:
-            print(f'Problem downloading {self.target} stories')
-
-
-
+            raise Exception(f'Problem downloading {self.target} stories')
 
 
 # from instagramstories.logs.logger_init import LoggerWarn

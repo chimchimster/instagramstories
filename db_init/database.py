@@ -1,9 +1,10 @@
 from typing import Optional, List
 from mysql.connector import connect, Error
-from instagramstories.logs.logger_init import LoggerWarn
 
 from instagramstories import settings
+from instagramstories.logs.logger_init import Logging
 
+logger = Logging()
 
 def db_decorator(func):
     def wrapper(*args, **kwargs):
@@ -15,7 +16,7 @@ def db_decorator(func):
         try:
             result = func(*args, connection=con, *kwargs)
         except Error as e:
-            LoggerWarn.logger.warning(e)
+            print(e, 'SQL Failed!')
         else:
             con.commit()
             return result
@@ -43,7 +44,7 @@ class DataBase:
         cursor = connection.cursor()
 
         cursor.execute(f'USE {self.db_name}')
-        cursor.execute(f"CREATE TABLE {args[0]} ({', '.join([arg for arg in args[1:]])});")
+        cursor.execute(f"CREATE TABLE IF NOT EXISTS {args[0]} ({', '.join([arg for arg in args[1:]])});")
         print(f'TABLE {args[0]} SUCCESSFULLY CREATED')
 
     @db_decorator
