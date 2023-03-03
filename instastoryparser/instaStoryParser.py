@@ -2,7 +2,8 @@ import os
 
 import instagramstories.instaloader_init.loader_init
 import instagramstories.imagehandling.imagehandle
-import instagramstories.accounts.get_accs, instagramstories.accounts.get_cred
+import instagramstories.accounts.get_accs
+import instagramstories.accounts.get_cred
 import instagramstories.db_init.database
 
 from instagramstories.logs.logger_init import LoggerWarn
@@ -74,7 +75,6 @@ def main():
             if credential not in used_credentials:
                 # Mark used credential
                 used_credentials.add(credential)
-                print(credential)
                 username, password, session = credential
 
                 def update_session_file(session):
@@ -83,12 +83,16 @@ def main():
                         path.write(session)
                     return path_to_session
 
+                path_to_session = update_session_file(session)
 
-                # Login into account
-                #login(username, password, update_session_file(session))
+                try:
+                    # Login into account
+                    login(username, password, path_to_session)
 
-                # Collect StoryItems while being logged-in
-                #collect_data()
+                    # Collect StoryItems while being logged-in
+                    collect_data()
+                except:
+                    continue
             else:
                 credential = db.get_account_credentials('credentials')
 
@@ -153,10 +157,9 @@ def main():
     login_handle()
 
     # Migration to database
-    #db.send_to_table('attachments', ('account_id', 'type', 'path',), collection_to_send)
+    db.send_to_table('attachments', ('account_id', 'type', 'path',), collection_to_send)
 
 
 if __name__ == '__main__':
     main()
-    ...
 

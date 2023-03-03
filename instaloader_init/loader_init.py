@@ -1,9 +1,7 @@
 import time
 import instaloader
-loader = instaloader.Instaloader(
-                                 storyitem_metadata_txt_pattern='',
-                                 download_geotags=False,
-                                 )
+
+loader = instaloader.Instaloader(storyitem_metadata_txt_pattern='', download_geotags=False)
 
 
 class SignIn:
@@ -15,7 +13,7 @@ class SignIn:
     def sign_in(self):
         try:
             # Loading session from /sessions/session.txt
-            loader.load_session_from_file(self.username, self.path_to_session)
+            # loader.load_session_from_file(self.username, self.path_to_session)
 
             # Login into account
             loader.login(self.username, self.password)
