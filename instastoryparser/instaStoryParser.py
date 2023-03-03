@@ -92,7 +92,7 @@ def parse_instagram_stories():
             signin = loader_init.SignIn(username, password, path_to_session)
             signin.sign_in()
         except Exception:
-            print(f'Account {username} might be restricted')
+            raise print(f'Account {username} might be restricted')
 
 
     def collect_data():

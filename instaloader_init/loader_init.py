@@ -44,7 +44,7 @@ class LoadStoriesOfUser:
 
             loader.download_stories(userids=[profile.userid])
         except Exception:
-            raise Exception(f'Problem downloading {self.target} stories')
+            raise print(f'Problem downloading {self.target} stories')
 
 
 # from instagramstories.logs.logger_init import LoggerWarn
