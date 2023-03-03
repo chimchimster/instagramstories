@@ -86,7 +86,7 @@ class DataBase:
         cursor = connection.cursor()
 
         cursor.execute(f"USE {self.db_name}")
-        cursor.execute(f'SELECT login, password FROM {table_name} WHERE status = "{status}" ORDER BY RAND() LIMIT 1;')
+        cursor.execute(f'SELECT login, password, session FROM {table_name} WHERE status = "{status}" ORDER BY RAND() LIMIT 1;')
 
         return cursor.fetchone()
 

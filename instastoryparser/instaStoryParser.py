@@ -38,26 +38,27 @@ def main():
                     'credentials_id int PRIMARY KEY AUTO_INCREMENT',
                     'login VARCHAR(255)',
                     'password VARCHAR(255)',
-                    'status VARCHAR(255)'
+                    'session VARCHAR(255)',
+                    'status VARCHAR(255)',
                     )
 
     # Fill table credentials with initial data
     try:
-        db.send_to_table('credentials', ('login', 'password', 'status'), instagramstories.accounts.get_cred.get_credentials(PATH_TO_CREDENTIALS))
+        db.send_to_table('credentials', ('login', 'password', 'session', 'status'), instagramstories.accounts.get_cred.get_credentials(PATH_TO_CREDENTIALS))
     except Exception:
-        logger_warning.logger.exception('There is no accounts to send!')
+        print('There is no accounts to send!')
 
     # Fill table accounts with initial data
     try:
         db.send_to_table('accounts', ('account',), instagramstories.accounts.get_accs.get_accounts(PATH_TO_ACCOUNTS))
     except Exception:
-        logger_warning.logger.exception('There is no accounts to send!')
+        print('There is no accounts to send!')
 
     # Get accounts for parse from database
     instagram_accounts = [account[0] for account in db.get_data_for_parse('account', 'accounts')]
 
     if not instagram_accounts:
-        raise logger_warning.logger.exception('There is no account to parse!')
+        raise Exception('There is no account to parse!')
 
     def login_handle():
         # Store credentials which were already in use
@@ -69,27 +70,35 @@ def main():
         # Get random credential from database
         credential = db.get_account_credentials('credentials')
 
-        while len(used_credentials) < table_length:
+        while len(used_credentials) < table_length[0]:
             if credential not in used_credentials:
                 # Mark used credential
                 used_credentials.add(credential)
+                print(credential)
+                username, password, session = credential
+
+                def update_session_file(session):
+                    path_to_session = '/home/newuser/work_artem/instagramstories/sessions/session.txt'
+                    with open(path_to_session, 'w') as path:
+                        path.write(session)
+                    return path_to_session
+
 
                 # Login into account
-                username, password = credential
-                login(username, password)
+                #login(username, password, update_session_file(session))
 
                 # Collect StoryItems while being logged-in
-                collect_data()
+                #collect_data()
             else:
                 credential = db.get_account_credentials('credentials')
 
-    def login(username, password):
+    def login(username, password, path_to_session):
         try:
             # Trying to sign in into user's account
-            signin = instagramstories.instaloader_init.loader_init.SignIn(username, password)
+            signin = instagramstories.instaloader_init.loader_init.SignIn(username, password, path_to_session)
             signin.sign_in()
         except Exception:
-            raise logger_warning.logger.exception(f'Account {username} might be restricted')
+            print(f'Account {username} might be restricted')
 
 
     def collect_data():
@@ -144,7 +153,7 @@ def main():
     login_handle()
 
     # Migration to database
-    db.send_to_table('attachments', ('account_id', 'type', 'path',), collection_to_send)
+    #db.send_to_table('attachments', ('account_id', 'type', 'path',), collection_to_send)
 
 
 if __name__ == '__main__':
