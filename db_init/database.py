@@ -1,6 +1,10 @@
 from typing import Optional, List
 from instagramstories import settings
 from mysql.connector import connect, Error
+from instagramstories.logs.logs_config import LoggerHandle
+
+log = LoggerHandle()
+log.logger_config()
 
 
 def db_decorator(func):
@@ -13,7 +17,7 @@ def db_decorator(func):
         try:
             result = func(*args, connection=con, *kwargs)
         except Error as e:
-            print(e, 'SQL Failed!')
+            log.logger.warning(e, 'SQL Failed!')
         else:
             con.commit()
             return result
