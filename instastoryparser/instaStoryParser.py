@@ -1,16 +1,29 @@
 import os
+import time
 
 from instagramstories.db_init.database import DataBase
 from instagramstories.accounts import get_accs, get_cred
 from instagramstories.imagehandling import imagehandle
 from instagramstories.instaloader_init import loader_init
-from instagramstories.logs.logger_init import Logging
+from instagramstories.logs.logs_config import LoggerHandle
+
+log = LoggerHandle()
+log.logger_config()
 
 PATH_TO_ACCOUNTS = '/home/newuser/work_artem/instagramstories/accounts/account_for_parse.txt'
 PATH_TO_CREDENTIALS = '/home/newuser/work_artem/instagramstories/accounts/credentials.txt'
 
 
 def parse_instagram_stories():
+    # Controls repeating of credentials
+    used_credentials = set()
+
+    # Controls repeating of accounts
+    used_accounts = set()
+
+    # Initiate collection which will be sent to database
+    collection_to_send = []
+
     db = DataBase('stories')
 
     # Creates database
@@ -75,13 +88,18 @@ def parse_instagram_stories():
                 path_to_session = update_session_file(session)
 
                 try:
+                    # Simulates human behaviour
+                    time.sleep(15)
+
                     # Login into account
                     login(username, password, path_to_session)
 
-                    # Collect StoryItems while being logged-in
-                    collect_data()
+                    print(f'Successfully logged in with account: {username}')
                 except:
                     continue
+
+                # Collect StoryItems while being logged-in
+                collect_data()
 
             else:
                 credential = db.get_account_credentials('credentials')
@@ -105,7 +123,7 @@ def parse_instagram_stories():
         if not instagram_accounts:
             raise Exception('There is no account to parse!')
 
-        accounts_counter = 0
+        accounts_counter = 1
         for account in instagram_accounts:
             if account not in used_accounts:
                 print(account, accounts_counter)
@@ -115,6 +133,9 @@ def parse_instagram_stories():
 
                 directory_of_account = f'/{account}/stories'
                 try:
+                    # Simulates human behaviour
+                    time.sleep(15)
+
                     # Collect stories from account
                     user = loader_init.LoadStoriesOfUser(account)
                     user.download_stories_of_target()
@@ -156,23 +177,23 @@ def parse_instagram_stories():
                                 collection_to_send.append([account_id, 3, element])
 
                 accounts_counter += 1
+
+                def migration_to_attachments():
+                    db.send_to_table('attachments', ('account_id', 'type', 'path',), collection_to_send)
+
+                if accounts_counter % 3 == 0:
+                    # Migrate
+                    migration_to_attachments()
+
+                    # Empty space inside of structure which stores elements of collection
+                    collection_to_send.clear()
+                    data_to_db.clear()
             else:
                 continue
-
-    # Controls repeating of credentials
-    used_credentials = set()
-
-    # Controls repeating of accounts
-    used_accounts = set()
-
-    # Initiate collection which will be sent to database
-    collection_to_send = []
 
     # Maintain parser log-in and collecting data logic
     login_handle()
 
-    # Migration to database
-    db.send_to_table('attachments', ('account_id', 'type', 'path',), collection_to_send)
 
 
 def main():

@@ -1,10 +1,7 @@
 from typing import Optional, List
+from instagramstories import settings
 from mysql.connector import connect, Error
 
-from instagramstories import settings
-from instagramstories.logs.logger_init import Logging
-
-logger = Logging()
 
 def db_decorator(func):
     def wrapper(*args, **kwargs):

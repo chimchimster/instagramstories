@@ -2,7 +2,12 @@ import os
 import time
 import instaloader
 
+from instagramstories.logs.logs_config import LoggerHandle
+
+
 loader = instaloader.Instaloader(storyitem_metadata_txt_pattern='', download_geotags=False)
+log = LoggerHandle()
+log.logger_config()
 
 
 class SignIn:
@@ -13,12 +18,13 @@ class SignIn:
 
     def sign_in(self):
         try:
-            # Loading session from /sessions/session.txt
+            # If its needed load session from /sessions/session.txt
             # loader.load_session_from_file(self.username, self.path_to_session)
 
             # Login into account
             loader.login(self.username, self.password)
         except Exception:
+            log.logger.warning(f'Problem with signing to {self.username} account')
             raise Exception(f'Problem with signing to {self.username} account')
 
 
@@ -34,7 +40,7 @@ class LoadStoriesOfUser:
             # Simulates human behaviour
             time.sleep(15)
 
-            # Get up on level - equivalent of bash 'cd'
+            # Get up on level ../media/ - equivalent of bash 'cd'
             os.chdir('..' + '/media/')
 
             # Determine pattern where StoryItems have to be saved
@@ -43,21 +49,12 @@ class LoadStoriesOfUser:
             time.sleep(15)
 
             loader.download_stories(userids=[profile.userid])
+
+            time.sleep(15)
         except Exception:
+            log.logger.warning(f'Problem downloading {self.target} stories')
             raise print(f'Problem downloading {self.target} stories')
 
-
-# from instagramstories.logs.logger_init import LoggerWarn
-#
-# class ControlRateLimit(instaloader.RateController):
-#     def sleep(self, secs: float = 21):
-#         raise logger_warn.logger.exception('There is a 429 error occurred')
-#
-#     def query_waittime(self, query_type, current_time, untracked_queries=False):
-#         return 5 + super().query_waittime(query_type, current_time, untracked_queries)
-
-
-# logger_warn = LoggerWarn()
 
 
 
