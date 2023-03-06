@@ -3,9 +3,35 @@ import time
 import instaloader
 
 from instagramstories.logs.logs_config import LoggerHandle
+from instagramstories.db_init.database import DataBase
+
+
+def get_proxies():
+    # collection = [('127.0.0.1', '8000', 'hip', 'hop', 'stories'), ('127.0.0.1', '8000', 'hip', 'hop', 'stories')]
+    db = DataBase('proxies')
+    # db.create_db()
+    # db.create_table('prox_table',
+    #                 'proxy_id INT PRIMARY KEY AUTO_INCREMENT',
+    #                 'proxy VARCHAR(255)',
+    #                 'port VARCHAR(255)',
+    #                 'login VARCHAR(255)',
+    #                 'password VARCHAR(255)',
+    #                 'script VARCHAR(255)',)
+
+    # db.send_to_table('prox_table', ('proxy', 'port', 'login', 'password', 'script'),
+    #                  collection)
+    proxy, port, login, password = db.get_proxies('prox_table')
+    proxies = {
+        f'http://{login}:{password}@{proxy}:{port}',
+        f'https://{login}:{password}@{proxy}:{port}',
+    }
+    return proxies
 
 
 loader = instaloader.Instaloader(storyitem_metadata_txt_pattern='', download_geotags=False)
+loader.context._session.proxies = get_proxies()
+print(loader.context._session.proxies )
+
 log = LoggerHandle()
 log.logger_config()
 

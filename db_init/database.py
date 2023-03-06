@@ -98,7 +98,17 @@ class DataBase:
         cursor = connection.cursor()
 
         cursor.execute(f"USE {self.db_name}")
-        cursor.execute(f'SELECT COUNT({args[0]}) FROM {table_name} WHERE status = "{status}"')
+        cursor.execute(f'SELECT COUNT({args[0]}) FROM {table_name} WHERE status = "{status}";')
+
+        return cursor.fetchone()
+
+    @db_decorator
+    def get_proxies(self, table_name: str, script: str = 'stories', *args, **kwargs):
+        connection = kwargs.pop('connection')
+        cursor = connection.cursor()
+
+        cursor.execute(f"USE {self.db_name}")
+        cursor.execute(f'SELECT proxy, port, login, password FROM {table_name} WHERE script = "{script}" ORDER BY RAND() LIMIT 1;')
 
         return cursor.fetchone()
 
