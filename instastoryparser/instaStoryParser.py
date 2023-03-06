@@ -110,6 +110,7 @@ def parse_instagram_stories():
             signin = loader_init.SignIn(username, password, path_to_session)
             signin.sign_in()
         except Exception:
+            log.logger.warning(f'Account {username} might be restricted')
             raise print(f'Account {username} might be restricted')
 
 
@@ -121,6 +122,7 @@ def parse_instagram_stories():
         instagram_accounts = [account[0] for account in db.get_data_for_parse('account', 'accounts')]
 
         if not instagram_accounts:
+            log.logger.warning('There is no account to parse!')
             raise Exception('There is no account to parse!')
 
         accounts_counter = 1

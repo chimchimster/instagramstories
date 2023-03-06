@@ -1,6 +1,8 @@
 import os
 import logging
 
+from datetime import date
+
 
 class LoggerHandle:
     # Set up logger
@@ -14,7 +16,7 @@ class LoggerHandle:
         os.chdir('..' + '/logs')
 
         # Set up filehandler for insta_story_logger
-        insta_story_logger_file_handler = logging.FileHandler(os.getcwd() + '/story_logger.log', mode='w')
+        insta_story_logger_file_handler = logging.FileHandler(os.getcwd() + f'/history/story_logger_{date.today()}.log', mode='w')
 
         # Set up formater for insta_story_logger
         insta_story_logger_formatter = logging.Formatter('%(name)s - %(asctime)s - %(message)s')
