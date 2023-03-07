@@ -3,15 +3,17 @@ import time
 
 from multiprocessing import Process
 from instagramstories.db_init.database import DataBase
+from instagramstories.logs.logs_config import LoggerHandle
+
 from instagramstories.imagehandling import imagehandle
 from instagramstories.instaloader_init import loader_init
-from instagramstories.logs.logs_config import LoggerHandle
 
 log = LoggerHandle()
 log.logger_config()
 
 
 def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies):
+
     # Initiate collection which will be sent to database
     collection_to_send = []
 
@@ -171,6 +173,7 @@ if __name__ == '__main__':
     # Determines accounts_set
     accounts_set = []
 
+    # Store processes
     procs = []
 
     # Algorithm which split instagram_accounts into equivalent chunks
@@ -192,16 +195,18 @@ if __name__ == '__main__':
     # Fill proxies
     fill_flows(proxies, 'proxy')
 
+    # Applying multiprocessing
     for stream in flows:
-        process = Process(target=parse_instagram_stories, args=(
-            stream,
-            flows[stream]['accounts'],
-            flows[stream]['credentials'],
-            flows[stream]['proxy']
-        ))
+        process = Process(target=parse_instagram_stories,
+                          args=(stream,
+                                flows[stream]['accounts'],
+                                flows[stream]['credentials'],
+                                flows[stream]['proxy'],
+                                ))
         procs.append(process)
         process.start()
 
+    # Join processes
     for proc in procs:
         proc.join()
 
