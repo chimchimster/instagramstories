@@ -49,12 +49,12 @@ class DataBase:
         print(f'TABLE {args[0]} SUCCESSFULLY CREATED')
 
     @db_decorator
-    def get_data_for_parse(self, *args, **kwargs):
+    def get_data_for_parse(self,  quantity=1000, *args, **kwargs):
         connection = kwargs.pop('connection')
         cursor = connection.cursor()
 
         cursor.execute(f'USE {self.db_name}')
-        cursor.execute(f"SELECT {args[0]} FROM {args[1]};")
+        cursor.execute(f"SELECT {args[0]} FROM {args[1]} ORDER BY RAND() LIMIT {quantity}")
 
         return [item for item in cursor.fetchall()]
 
@@ -83,34 +83,24 @@ class DataBase:
         return min([item[0] for item in cursor.fetchall()])
 
     @db_decorator
-    def get_account_credentials(self, table_name: str, *args, status: str = 'stream_',  **kwargs) -> Optional[List]:
+    def get_account_credentials(self, table_name: str, soc_type: int = 4, _type: str = 'INST_PARSER', limit: int = 1, *args,  **kwargs) -> Optional[List]:
         connection = kwargs.pop('connection')
         cursor = connection.cursor()
 
         cursor.execute(f"USE {self.db_name}")
-        cursor.execute(f'SELECT login, password, session FROM {table_name} WHERE status = "{status}" ORDER BY RAND() LIMIT 1;')
+        cursor.execute(f'SELECT login, password FROM {table_name} WHERE soc_type = "{soc_type}" AND type = "{_type}" ORDER BY RAND() LIMIT {limit};')
 
-        return cursor.fetchone()
+        return [item for item in cursor.fetchall()]
 
     @db_decorator
-    def get_length_of_table(self, table_name: str, *args, status: str = 'stream_', **kwargs):
+    def get_proxies(self, table_name: str, script: str = 'stories', limit: int = 1, *args, **kwargs):
         connection = kwargs.pop('connection')
         cursor = connection.cursor()
 
         cursor.execute(f"USE {self.db_name}")
-        cursor.execute(f'SELECT COUNT({args[0]}) FROM {table_name} WHERE status = "{status}";')
+        cursor.execute(f'SELECT proxy, port, login, password FROM {table_name} WHERE script = "{script}" ORDER BY RAND() LIMIT {limit};')
 
-        return cursor.fetchone()
-
-    @db_decorator
-    def get_proxies(self, table_name: str, script: str = 'stories', *args, **kwargs):
-        connection = kwargs.pop('connection')
-        cursor = connection.cursor()
-
-        cursor.execute(f"USE {self.db_name}")
-        cursor.execute(f'SELECT proxy, port, login, password FROM {table_name} WHERE script = "{script}" ORDER BY RAND() LIMIT 1;')
-
-        return cursor.fetchone()
+        return [item for item in cursor.fetchall()]
 
 
 
