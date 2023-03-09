@@ -2,7 +2,7 @@ import os
 import time
 
 from multiprocessing import Process
-from instagramstories.db_init.database import DataBase
+from instagramstories.db_init.database import DataBase, DataBase2, DataBase3
 from instagramstories.logs.logs_config import LoggerHandle
 
 from instagramstories.imagehandling import imagehandle
@@ -126,7 +126,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
 
             accounts_counter += 1
 
-            if accounts_counter % 3 == 0 and len(collection_to_send) > 0:
+            if accounts_counter % 50 == 0 and len(collection_to_send) > 0:
                 try:
                     # Migrate
                     migration_to_attachments()
@@ -145,12 +145,12 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
 
 if __name__ == '__main__':
     db_imas = DataBase('imas')
-    db_social_services = DataBase('social_services')
-    db_attachments = DataBase('i_dont_know')
+    db_social_services = DataBase2('social_services')
+    db_attachments = DataBase3('i_dont_know')
 
-    instagram_accounts = [account[0] for account in db_imas.get_data_for_parse('screen_name', 'resource_social')]
-    credentials = db_social_services.get_account_credentials('soc_accounts', 4, 'INST_PARSER', 5)
-    proxies = db_social_services.get_proxies('proxies', 'stories', 5)
+    instagram_accounts = [account[0] for account in db_imas.get_data_for_parse('resource_social')]
+    credentials = db_social_services.get_account_credentials('soc_accounts')
+    proxies = db_social_services.get_proxies('proxies')
 
     # Here should be 5 streams
     # that's why let's divide
@@ -209,4 +209,6 @@ if __name__ == '__main__':
     # Join processes
     for proc in procs:
         proc.join()
+
+
 
