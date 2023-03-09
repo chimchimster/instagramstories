@@ -86,14 +86,18 @@ class DataBase:
         return min([item[0] for item in cursor.fetchall()])
 
     @connection_params(settings.imas_account['host'], settings.imas_account['user'], settings.imas_account['password'])
-    def get_account_credentials(self, table_name: str, soc_type: int = 4, _type: str = 'INST_PARSER', limit: int = 5, *args,  **kwargs) -> Optional[List]:
+    def get_account_credentials(self, table_name: str, soc_type: int = 4, _type: str = 'INST_PARSER>', work: int = 1, limit: int = 5, *args,  **kwargs) -> Optional[List]:
         connection = kwargs.pop('connection')
         cursor = connection.cursor()
 
         cursor.execute(f"USE {self.db_name}")
-        cursor.execute(f'SELECT login, password FROM {table_name} WHERE soc_type = "{soc_type}" AND type = "{_type}" ORDER BY RAND() LIMIT {limit};')
+        cursor.execute(f'SELECT login, password FROM {table_name} WHERE soc_type = "{soc_type}" AND type = "{_type}" AND work = {work} ORDER BY RAND() LIMIT {limit};')
 
-        return [item for item in cursor.fetchall()]
+        credentials = cursor.fetchall()
+        mark_as_used = [credential[0] for credential in credentials]
+        cursor.execute(f"UPDATE {table_name} SET work = 0 WHERE login IN ({', '.join(mark_as_used)})")
+
+        return [item for item in credentials]
 
     @connection_params(settings.imas_account['host'], settings.imas_account['user'], settings.imas_account['password'])
     def get_proxies(self, table_name: str, script: str = 'stories', limit: int = 5, *args, **kwargs):

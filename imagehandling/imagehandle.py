@@ -21,7 +21,7 @@ class ImageHandling:
             image = Image.open(path)
 
             # Extract text from image
-            text = pytesseract.image_to_string(image, lang='eng+rus')
+            text = pytesseract.image_to_string(image, lang='eng+kaz+rus+ara+chi_tra+deu+fra+ita+jpn+kor+por+equ+fin')
             text = text.replace('\n', '')
 
             if text:

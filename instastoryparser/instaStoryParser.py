@@ -12,6 +12,7 @@ log = LoggerHandle()
 log.logger_config()
 
 
+
 def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies):
 
     # Initiate collection which will be sent to database
@@ -42,6 +43,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             login(username, password)
         except:
             log.logger.warning(f'Probably {credential} is blocked')
+            return
 
         # Collect StoryItems while being logged-in
         collect_data()
@@ -143,7 +145,8 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
     login_handle()
 
 
-if __name__ == '__main__':
+def main():
+    global db_attachments, db_imas
     db_imas = DataBase('imas')
     db_social_services = DataBase2('social_services')
     db_attachments = DataBase3('i_dont_know')
@@ -209,6 +212,11 @@ if __name__ == '__main__':
     # Join processes
     for proc in procs:
         proc.join()
+
+
+if __name__ == '__main__':
+    main()
+
 
 
 
