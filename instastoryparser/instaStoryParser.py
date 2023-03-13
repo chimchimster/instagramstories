@@ -92,6 +92,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                 user.download_stories_of_target()
             except Exception:
                 log.logger.warning(f'There is an error while loading data from {account}')
+                print()
 
             try:
                 # Changing directory to media
