@@ -73,7 +73,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
         data_to_db = {}
 
         def migration_to_attachments():
-            db_attachments.send_to_table('attachments', ('account_id', 'type', 'path',), collection_to_send)
+            db_attachments.send_to_table('attachments', collection_to_send)
 
         if not instagram_accounts:
             log.logger.warning('There is no account to parse!')
@@ -148,9 +148,10 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
 
 
 def get_data_from_db():
-    db_imas = ClickHouseDatabase('imas')
-    db_social_services = DataBase('social_services')
-    db_attachments = DataBase('attachments')
+    global db_attachments, db_imas
+    db_imas = ClickHouseDatabase('imas', settings.imas_db['host'], settings.imas_db['port'], settings.imas_db['user'], settings.imas_db['password'])
+    db_social_services = MariaDataBase('social_services')
+    db_attachments = ClickHouseDatabase('attachments', settings.attachments_db['host'], settings.attachments_db['port'], settings.attachments_db['user'], settings.attachments_db['password'])
 
     accounts = [account[0] for account in db_imas.get_data_for_parse('resource_social')]
     credential = db_social_services.get_account_credentials('soc_accounts')

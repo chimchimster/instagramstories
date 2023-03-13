@@ -126,13 +126,37 @@ class ClickHouseDatabase:
     def get_data_for_parse(self,  table_name, quantity=500, _type: int = 4, stability: int = 1, worker: int = 4):
         return self.connection.execute(f"SELECT screen_name FROM {self.db_name}.{table_name} WHERE type = {_type} AND stability = {stability} AND worker = {worker} ORDER BY RAND() LIMIT {quantity}")
 
+    def create_db(self):
+        self.connection.execute(f'CREATE DATABASE {self.db_name}')
+
+    def create_table(self, *args, **kwargs):
+        self.connection.execute(f"CREATE TABLE IF NOT EXISTS {args[0]} ({', '.join([arg for arg in args[1:]])}) ENGINE = MergeTree() ORDER BY account_id")
+
+    def send_to_table(self, table_name: str, collection: [tuple, list]):
+        self.connection.execute(f"INSERT INTO {table_name} (account_id, type, path) VALUES", collection)
+
+    def get_account_id(self, account):
+        return self.connection.execute(f"SELECT id FROM {self.db_name}.resource_social WHERE screen_name = '{account}'")
+
+
+
+
+# a = ClickHouseDatabase('attachments', settings.attachments_db['host'], settings.attachments_db['port'], settings.attachments_db['user'], settings.attachments_db['password'])
+# a.create_db()
+# a.create_table('atc_resource',
+#                'account_id INT',
+#                'type INT',
+#                'path VARCHAR(255)')
+# a.send_to_table('atc_resource', [[1, 1, 'https://google.com'], [1, 1, 'https://google.com'], [1, 1, 'https://google.com']])
 
 # c = ClickHouseDatabase('imas', settings.imas_db['host'], settings.imas_db['port'], settings.imas_db['user'], settings.imas_db['password'])
-# print(c.get_data_for_parse('resource_social'))
-
+# print(c.get_account_id('serinord_digitale'))
 # m = MariaDataBase('social_services')
 # print(m.get_account_credentials('soc_accounts', 4, 'INST', 1, 5))
+# print(m.get_proxies('proxies'))
 
+# p = MariaDataBase('social_services')
+# print(p.get_proxies('proxies', 'Ramis'))
 
 # PATH_TO_ACCOUNTS = '/home/newuser/work_artem/instagramstories/accounts/account_for_parse.txt'
 # PATH_TO_CREDENTIALS = '/home/newuser/work_artem/instagramstories/accounts/credentials.txt'
