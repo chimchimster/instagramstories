@@ -1,4 +1,5 @@
-import clickhouse_connect
+import time
+
 from clickhouse_driver import Client
 
 from typing import Optional, List
@@ -12,37 +13,32 @@ from instagramstories.logs.logs_config import LoggerHandle
 log = LoggerHandle()
 log.logger_config()
 
-maria_db_connector = connect(
-    host=settings.social_services_db['host'],
-    user=settings.social_services_db['user'],
-    password=settings.social_services_db['password']
-)
 
+def db_decorator(func):
+    def wrapper(*args, **kwargs):
+        con = connect(
+            host=settings.social_services_db['host'],
+            user=settings.social_services_db['user'],
+            password=settings.social_services_db['password']
+        )
+        try:
+            result = func(*args, connection=con, **kwargs)
+        except Error as e:
+            log.logger.warning(e, 'SQL Failed!')
+        else:
+            con.commit()
+            return result
+        finally:
+            con.close()
 
-def connection_params(connector):
-    def db_decorator(func):
-        def wrapper(*args, **kwargs):
-            con = connector
-            try:
-                result = func(*args, connection=con, **kwargs)
-            except Error as e:
-                log.logger.warning(e, 'SQL Failed!')
-            else:
-                con.commit()
-                return result
-            finally:
-                con.close()
-
-        return wrapper
-
-    return db_decorator
+    return wrapper
 
 
 class MariaDataBase:
     def __init__(self, db_name):
         self.db_name = db_name
 
-    @connection_params(maria_db_connector)
+    @db_decorator
     def create_db(self, *args, **kwargs):
         connection = kwargs.pop('connection')
         cursor = connection.cursor()
@@ -50,7 +46,7 @@ class MariaDataBase:
         cursor.execute(f"CREATE DATABASE {self.db_name}")
         print('DATABASE SUCCESSFULLY CREATED')
 
-    @connection_params(maria_db_connector)
+    db_decorator
     def create_table(self, *args, **kwargs):
         connection = kwargs.pop('connection')
         cursor = connection.cursor()
@@ -59,7 +55,7 @@ class MariaDataBase:
         cursor.execute(f"CREATE TABLE IF NOT EXISTS {args[0]} ({', '.join([arg for arg in args[1:]])});")
         print(f'TABLE {args[0]} SUCCESSFULLY CREATED')
 
-    @connection_params(maria_db_connector)
+    @db_decorator
     def get_data_for_parse(self,  table_name, quantity=500, _type: int = 4, stability: int = 1, worker: int = 4, *args, **kwargs):
         connection = kwargs.pop('connection')
         cursor = connection.cursor()
@@ -69,7 +65,7 @@ class MariaDataBase:
 
         return [item for item in cursor.fetchall()]
 
-    @connection_params(maria_db_connector)
+    @db_decorator
     def send_to_table(self, table_name: str, columns: tuple, collection: list, *args, **kwargs) -> None:
         connection = kwargs.pop('connection')
         cursor = connection.cursor()
@@ -83,7 +79,7 @@ class MariaDataBase:
 
         print("DATA SUCCESSFULLY ADDED TO DATABASE")
 
-    @connection_params(maria_db_connector)
+    @db_decorator
     def get_account_id(self, *args, **kwargs):
         connection = kwargs.pop('connection')
         cursor = connection.cursor()
@@ -93,7 +89,7 @@ class MariaDataBase:
 
         return min([item[0] for item in cursor.fetchall()])
 
-    @connection_params(maria_db_connector)
+    @db_decorator
     def get_account_credentials(self, table_name: str, soc_type: int = 4, _type: str = 'INST_STORY_PARSER', work: int = 1, limit: int = 5, *args,  **kwargs) -> Optional[List]:
         connection = kwargs.pop('connection')
         cursor = connection.cursor()
@@ -103,8 +99,8 @@ class MariaDataBase:
 
         return [item for item in cursor.fetchall()]
 
-    @connection_params(maria_db_connector)
-    def get_proxies(self, table_name: str, script: str = 'stories', limit: int = 5, *args, **kwargs):
+    @db_decorator
+    def get_proxies(self, table_name: str, script: str = 'insta_story', limit: int = 5, *args, **kwargs):
         connection = kwargs.pop('connection')
         cursor = connection.cursor()
 
@@ -150,9 +146,9 @@ class ClickHouseDatabase:
 # a.send_to_table('atc_resource', [[1, 1, 'https://google.com'], [1, 1, 'https://google.com'], [1, 1, 'https://google.com']])
 
 # c = ClickHouseDatabase('imas', settings.imas_db['host'], settings.imas_db['port'], settings.imas_db['user'], settings.imas_db['password'])
-# print(c.get_account_id('serinord_digitale'))
+# print([item[0] for item in c.get_data_for_parse('resource_social')])
 # m = MariaDataBase('social_services')
-# print(m.get_account_credentials('soc_accounts', 4, 'INST', 1, 5))
+# print(m.get_account_credentials('soc_accounts', 4, 'INST_STORY_PARSER', 1, 5))
 # print(m.get_proxies('proxies'))
 
 # p = MariaDataBase('social_services')

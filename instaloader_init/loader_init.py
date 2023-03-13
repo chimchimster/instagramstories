@@ -22,10 +22,10 @@ class SignIn:
             loader.login(self.username, self.password)
 
             print(f'Successfully logged in with account: {self.username}')
+
         except Exception:
             log.logger.warning(f'Problem with signing to {self.username} account')
             return
-
 
 
 class LoadStoriesOfUser:
