@@ -1,8 +1,11 @@
 import os
 import time
+import clickhouse_connect
 
+from mysql.connector import connect
 from multiprocessing import Process
-from instagramstories.db_init.database import DataBase, DataBase2, DataBase3
+from instagramstories import settings
+from instagramstories.db_init.database import MariaDataBase, ClickHouseDatabase
 from instagramstories.logs.logs_config import LoggerHandle
 
 from instagramstories.imagehandling import imagehandle
@@ -22,7 +25,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
         print(f'THIS IS {flow_number} FLOW')
         print('NOW I USE THIS CREDENTIAL', credential)
 
-        username, password, session = credential
+        username, password = credential
 
         # Once you want to add session to login
         # you will be needed to throw session arguments
@@ -40,13 +43,12 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             time.sleep(15)
 
             # Login into account
-            login(username, password)
+            if login(username, password):
+                # Collect StoryItems while being logged-in
+                collect_data()
         except:
+            print(f'Probably {credential} is blocked')
             log.logger.warning(f'Probably {credential} is blocked')
-            return
-
-        # Collect StoryItems while being logged-in
-        collect_data()
 
     def login(username, password):
         try:
@@ -112,8 +114,8 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                             data_to_db[account]['path_video'].append(os.getcwd() + directory_of_account + file)
                         elif file.endswith('.jpg'):
                             data_to_db[account]['path_photo'].append(os.getcwd() + directory_of_account + file)
-            except Exception:
-                print('Account responded with status code 404 or does not have StoryItems to load')
+            except:
+                print(f'Account {account} responded with status code 404 or does not have StoryItems to load')
 
             for account, data in data_to_db.items():
                 account_id = db_imas.get_account_id(account)
@@ -128,7 +130,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
 
             accounts_counter += 1
 
-            if accounts_counter % 50 == 0 and len(collection_to_send) > 0:
+            if accounts_counter % 3 == 0 and len(collection_to_send) > 0:
                 try:
                     # Migrate
                     migration_to_attachments()
@@ -145,15 +147,20 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
     login_handle()
 
 
-def main():
-    global db_attachments, db_imas
-    db_imas = DataBase('imas')
-    db_social_services = DataBase2('social_services')
-    db_attachments = DataBase3('i_dont_know')
+def get_data_from_db():
+    db_imas = ClickHouseDatabase('imas')
+    db_social_services = DataBase('social_services')
+    db_attachments = DataBase('attachments')
 
-    instagram_accounts = [account[0] for account in db_imas.get_data_for_parse('resource_social')]
-    credentials = db_social_services.get_account_credentials('soc_accounts')
-    proxies = db_social_services.get_proxies('proxies')
+    accounts = [account[0] for account in db_imas.get_data_for_parse('resource_social')]
+    credential = db_social_services.get_account_credentials('soc_accounts')
+    proxy = db_social_services.get_proxies('proxies')
+
+    return accounts, credential, proxy
+
+
+def main(instagram_accounts, credentials, proxies):
+    global db_attachments, db_imas
 
     # Here should be 5 streams
     # that's why let's divide
@@ -215,7 +222,9 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    while True:
+        instagram_accounts, credentials, proxies = get_data_from_db()
+        main(instagram_accounts, credentials, proxies)
 
 
 

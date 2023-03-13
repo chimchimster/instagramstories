@@ -24,7 +24,8 @@ class SignIn:
             print(f'Successfully logged in with account: {self.username}')
         except Exception:
             log.logger.warning(f'Problem with signing to {self.username} account')
-            raise Exception(f'Problem with signing to {self.username} account')
+            return
+
 
 
 class LoadStoriesOfUser:
@@ -50,10 +51,9 @@ class LoadStoriesOfUser:
             loader.download_stories(userids=[profile.userid])
 
             time.sleep(15)
-
-        except Exception:
+        except:
             log.logger.warning(f'Problem downloading {self.target} stories')
-            raise print(f'Problem downloading {self.target} stories')
+            return
 
 
 

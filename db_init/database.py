@@ -1,20 +1,28 @@
+import clickhouse_connect
+from clickhouse_driver import Client
+
 from typing import Optional, List
+
 from instagramstories import settings
 from mysql.connector import connect, Error
+
+from instagramstories.accounts import get_cred, get_accs
 from instagramstories.logs.logs_config import LoggerHandle
 
 log = LoggerHandle()
 log.logger_config()
 
+maria_db_connector = connect(
+    host=settings.social_services_db['host'],
+    user=settings.social_services_db['user'],
+    password=settings.social_services_db['password']
+)
 
-def connection_params(host, user, password):
+
+def connection_params(connector):
     def db_decorator(func):
         def wrapper(*args, **kwargs):
-            con = connect(
-                host=host,
-                user=user,
-                password=password,
-            )
+            con = connector
             try:
                 result = func(*args, connection=con, **kwargs)
             except Error as e:
@@ -30,11 +38,11 @@ def connection_params(host, user, password):
     return db_decorator
 
 
-class DataBase:
+class MariaDataBase:
     def __init__(self, db_name):
         self.db_name = db_name
 
-    @connection_params(settings.imas_account['host'], settings.imas_account['user'], settings.imas_account['password'])
+    @connection_params(maria_db_connector)
     def create_db(self, *args, **kwargs):
         connection = kwargs.pop('connection')
         cursor = connection.cursor()
@@ -42,7 +50,7 @@ class DataBase:
         cursor.execute(f"CREATE DATABASE {self.db_name}")
         print('DATABASE SUCCESSFULLY CREATED')
 
-    @connection_params(settings.imas_account['host'], settings.imas_account['user'], settings.imas_account['password'])
+    @connection_params(maria_db_connector)
     def create_table(self, *args, **kwargs):
         connection = kwargs.pop('connection')
         cursor = connection.cursor()
@@ -51,8 +59,8 @@ class DataBase:
         cursor.execute(f"CREATE TABLE IF NOT EXISTS {args[0]} ({', '.join([arg for arg in args[1:]])});")
         print(f'TABLE {args[0]} SUCCESSFULLY CREATED')
 
-    @connection_params(settings.imas_account['host'], settings.imas_account['user'], settings.imas_account['password'])
-    def get_data_for_parse(self,  table_name, quantity=1000, _type: int = 4, stability: int = 1, worker: int = 4, *args, **kwargs):
+    @connection_params(maria_db_connector)
+    def get_data_for_parse(self,  table_name, quantity=500, _type: int = 4, stability: int = 1, worker: int = 4, *args, **kwargs):
         connection = kwargs.pop('connection')
         cursor = connection.cursor()
 
@@ -61,7 +69,7 @@ class DataBase:
 
         return [item for item in cursor.fetchall()]
 
-    @connection_params(settings.imas_account['host'], settings.imas_account['user'], settings.imas_account['password'])
+    @connection_params(maria_db_connector)
     def send_to_table(self, table_name: str, columns: tuple, collection: list, *args, **kwargs) -> None:
         connection = kwargs.pop('connection')
         cursor = connection.cursor()
@@ -75,31 +83,27 @@ class DataBase:
 
         print("DATA SUCCESSFULLY ADDED TO DATABASE")
 
-    @connection_params(settings.imas_account['host'], settings.imas_account['user'], settings.imas_account['password'])
+    @connection_params(maria_db_connector)
     def get_account_id(self, *args, **kwargs):
         connection = kwargs.pop('connection')
         cursor = connection.cursor()
 
         cursor.execute(f"USE {self.db_name}")
-        cursor.execute(f'SELECT id FROM resource_social WHERE screen_name = "{args[0]}" ORDER BY ASC LIMIT 1;')
+        cursor.execute(f'SELECT id FROM resource_social WHERE screen_name = "{args[0]}";')
 
         return min([item[0] for item in cursor.fetchall()])
 
-    @connection_params(settings.imas_account['host'], settings.imas_account['user'], settings.imas_account['password'])
-    def get_account_credentials(self, table_name: str, soc_type: int = 4, _type: str = 'INST_PARSER>', work: int = 1, limit: int = 5, *args,  **kwargs) -> Optional[List]:
+    @connection_params(maria_db_connector)
+    def get_account_credentials(self, table_name: str, soc_type: int = 4, _type: str = 'INST_STORY_PARSER', work: int = 1, limit: int = 5, *args,  **kwargs) -> Optional[List]:
         connection = kwargs.pop('connection')
         cursor = connection.cursor()
 
         cursor.execute(f"USE {self.db_name}")
-        cursor.execute(f'SELECT login, password FROM {table_name} WHERE soc_type = "{soc_type}" AND type = "{_type}" AND work = {work} ORDER BY RAND() LIMIT {limit};')
+        cursor.execute(f'SELECT login, password FROM {table_name} WHERE soc_type = {soc_type} AND type = "{_type}" AND work = {work} ORDER BY RAND() LIMIT {limit};')
 
-        credentials = cursor.fetchall()
-        mark_as_used = [credential[0] for credential in credentials]
-        cursor.execute(f"UPDATE {table_name} SET work = 0 WHERE login IN ({', '.join(mark_as_used)})")
+        return [item for item in cursor.fetchall()]
 
-        return [item for item in credentials]
-
-    @connection_params(settings.imas_account['host'], settings.imas_account['user'], settings.imas_account['password'])
+    @connection_params(maria_db_connector)
     def get_proxies(self, table_name: str, script: str = 'stories', limit: int = 5, *args, **kwargs):
         connection = kwargs.pop('connection')
         cursor = connection.cursor()
@@ -110,60 +114,91 @@ class DataBase:
         return [item for item in cursor.fetchall()]
 
 
-class DataBase2(DataBase):
-    def __init__(self, db_name):
-        super().__init__(db_name)
+class ClickHouseDatabase:
+    def __init__(self, db_name: str, host: str, port: int, username: str, password: str):
+        self.db_name = db_name
+        self.host = host
+        self.port = port
+        self.username = username
+        self.password = password
+        self.connection = Client(host=self.host, user=self.username, port=self.port, password=self.password)
 
-    @connection_params(settings.social_services['host'], settings.social_services['user'], settings.social_services['password'])
-    def create_db(self, *args, **kwargs):
-        super().create_db()
-
-    @connection_params(settings.social_services['host'], settings.social_services['user'], settings.social_services['password'])
-    def create_table(self, *args, **kwargs):
-        super().create_table()
-
-    @connection_params(settings.social_services['host'], settings.social_services['user'], settings.social_services['password'])
-    def get_data_for_parse(self,  quantity=1000, *args, **kwargs):
-        return super().get_data_for_parse()
-
-    @connection_params(settings.social_services['host'], settings.social_services['user'], settings.social_services['password'])
-    def get_account_id(self, *args, **kwargs):
-        return super().get_account_id()
-
-    @connection_params(settings.social_services['host'], settings.social_services['user'], settings.social_services['password'])
-    def get_account_credentials(self, table_name: str, soc_type: int = 4, _type: str = 'INST_PARSER', limit: int = 1, *args, **kwargs) -> Optional[List]:
-        return super().get_account_credentials()
-
-    @connection_params(settings.social_services['host'], settings.social_services['user'], settings.social_services['password'])
-    def get_proxies(self, table_name: str, script: str = 'stories', limit: int = 1, *args, **kwargs):
-        return super().get_proxies()
+    def get_data_for_parse(self,  table_name, quantity=500, _type: int = 4, stability: int = 1, worker: int = 4):
+        return self.connection.execute(f"SELECT screen_name FROM {self.db_name}.{table_name} WHERE type = {_type} AND stability = {stability} AND worker = {worker} ORDER BY RAND() LIMIT {quantity}")
 
 
-class DataBase3(DataBase2):
-    def __init__(self, db_name):
-        super().__init__(db_name)
+# c = ClickHouseDatabase('imas', settings.imas_db['host'], settings.imas_db['port'], settings.imas_db['user'], settings.imas_db['password'])
+# print(c.get_data_for_parse('resource_social'))
 
-    @connection_params(settings.attachments['host'], settings.attachments['user'], settings.attachments['password'])
-    def create_db(self, *args, **kwargs):
-        super().create_db()
+# m = MariaDataBase('social_services')
+# print(m.get_account_credentials('soc_accounts', 4, 'INST', 1, 5))
 
-    @connection_params(settings.social_services['host'], settings.social_services['user'], settings.social_services['password'])
-    def create_table(self, *args, **kwargs):
-        super().create_table()
 
-    @connection_params(settings.attachments['host'], settings.attachments['user'], settings.attachments['password'])
-    def get_data_for_parse(self, quantity=1000, *args, **kwargs):
-        return super().get_data_for_parse()
-
-    @connection_params(settings.attachments['host'], settings.attachments['user'], settings.attachments['password'])
-    def get_account_id(self, *args, **kwargs):
-        return super().get_account_id()
-
-    @connection_params(settings.attachments['host'], settings.attachments['user'], settings.attachments['password'])
-    def get_account_credentials(self, table_name: str, soc_type: int = 4, _type: str = 'INST_PARSER', limit: int = 1, *args, **kwargs) -> Optional[List]:
-        return super().get_account_credentials()
-
-    @connection_params(settings.attachments['host'], settings.attachments['user'], settings.attachments['password'])
-    def get_proxies(self, table_name: str, script: str = 'stories', limit: int = 1, *args, **kwargs):
-        return super().get_proxies()
-
+# PATH_TO_ACCOUNTS = '/home/newuser/work_artem/instagramstories/accounts/account_for_parse.txt'
+# PATH_TO_CREDENTIALS = '/home/newuser/work_artem/instagramstories/accounts/credentials.txt'
+# db1 = DataBase('imas')
+# db2 = DataBase('social_services')
+# db3 = DataBase('attachments')
+#
+# db1.create_db()
+# db2.create_db()
+# db3.create_db()
+#
+# # Creating table proxies
+# db2.create_table('proxies',
+#                  'proxy_id INT PRIMARY KEY AUTO_INCREMENT',
+#                  'proxy VARCHAR(255)',
+#                  'port VARCHAR(255)',
+#                  'login VARCHAR(255)',
+#                  'password VARCHAR(255)',
+#                  'script VARCHAR(255)', )
+#
+# # Creating table resource_social
+# db1.create_table('resource_social',
+#                 'id int PRIMARY KEY AUTO_INCREMENT',
+#                 'type int',
+#                 'stability int',
+#                 'worker int',
+#                 'screen_name VARCHAR(255) NOT NULL',
+#                 )
+#
+# # Creating table attachments
+# db3.create_table('attachments',
+#                 'record_id int PRIMARY KEY AUTO_INCREMENT',
+#                 'account_id int NOT NULL',
+#                 'type int NOT NULL',
+#                 'path TEXT NOT NULL',
+#                 )
+#
+# # Creating table credentials
+# db2.create_table('soc_accounts',
+#                 'credentials_id int PRIMARY KEY AUTO_INCREMENT',
+#                 'login VARCHAR(255)',
+#                 'password VARCHAR(255)',
+#                 'soc_type int',
+#                 'work int',
+#                 'type VARCHAR(255)',
+#                 )
+#
+# collection = [('185.156.178.105', '3021', 'indy361400', 'Degq3961Qz', 'stories'),
+#               ('185.156.178.105', '3022', 'indy361400', 'Degq3961Qz', 'stories'),
+#               ('185.156.178.105', '3023', 'indy361400', 'Degq3961Qz', 'stories'),
+#               ('185.156.178.105', '3024', 'indy361400', 'Degq3961Qz', 'stories'),
+#               ('185.156.178.105', '3025', 'indy361400', 'Degq3961Qz', 'stories'),
+#               ]
+#
+# # Fill table proxies with initial data
+# db2.send_to_table('proxies', ('proxy', 'port', 'login', 'password', 'script'), collection)
+#
+# # Fill table credentials with initial data
+# try:
+#     db2.send_to_table('soc_accounts', ('login', 'password', 'soc_type', 'work', 'type'),
+#                      get_cred.get_credentials(PATH_TO_CREDENTIALS))
+# except Exception:
+#     print('There is no accounts to send!')
+#
+# # Fill table accounts with initial data
+# try:
+#     db1.send_to_table('resource_social', ('screen_name', 'type', 'stability', 'worker'), get_accs.get_accounts(PATH_TO_ACCOUNTS))
+# except Exception:
+#     print('There is no accounts to send!')
