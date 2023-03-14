@@ -1,19 +1,21 @@
 import os
 import time
-import clickhouse_connect
+import yadisk
 
-from mysql.connector import connect
 from multiprocessing import Process
 from instagramstories import settings
-from instagramstories.db_init.database import MariaDataBase, ClickHouseDatabase
-from instagramstories.logs.logs_config import LoggerHandle
-
 from instagramstories.imagehandling import imagehandle
 from instagramstories.instaloader_init import loader_init
+from instagramstories.logs.logs_config import LoggerHandle
+from instagramstories.db_init.database import MariaDataBase, ClickHouseDatabase
+from instagramstories.yadisk_hanlde.yadisk_conf import yandex_disk_configuration
+from instagramstories.yadisk_hanlde.yadisk_module import create_folder, upload_file, get_uploaded_file_url
+
 
 log = LoggerHandle()
 log.logger_config()
 
+disk = yadisk.YaDisk(token=yandex_disk_configuration['TOKEN'])
 
 def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies):
 
@@ -24,17 +26,6 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
         print(f'THIS IS {flow_number} FLOW NOW I USE THIS CREDENTIAL - {credential}')
 
         username, password = credential
-
-        # Once you want to add session to login
-        # you will be needed to throw session arguments
-        # inside a SignIn class, then you have to
-        # update obj.context._session dictionary
-        def update_session_file(session):
-            os.chdir('..' + '/sessions/')
-            path_to_session = os.getcwd() + '/session.txt'
-            with open(path_to_session, 'w') as path:
-                path.write(session)
-            return path_to_session
 
         try:
             # Simulates human behaviour
@@ -72,7 +63,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
         data_to_db = {}
 
         def migration_to_attachments():
-            db_attachments.send_to_table('attachments', collection_to_send)
+            db_attachments.send_to_table('atc_resource', collection_to_send)
 
         if not instagram_accounts:
             log.logger.warning('There is no account to parse!')
@@ -80,6 +71,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
 
         accounts_counter = 1
         for account in instagram_accounts:
+            data_to_db[account] = {'path_video': [], 'path_photo': [], 'path_text': []}
             print(account, accounts_counter)
 
             directory_of_account = f'/{account}/stories'
@@ -92,41 +84,51 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                 user.download_stories_of_target()
             except Exception:
                 log.logger.warning(f'There is an error while loading data from {account}')
-                print()
 
             try:
-                # Changing directory to media
-                os.chdir('..' + '/media')
-
-                # Trying to drag text from photos
-                text_files = imagehandle.ImageHandling(os.getcwd() + directory_of_account)
-                text_files.create_txt_files()
-            except Exception:
-                print(f'{account} has no text on photo to drag it')
-
-            try:
-                if account not in data_to_db:
-                    data_to_db[account] = {'path_video': [], 'path_photo': [], 'path_text': []}
-                    for file in os.listdir(os.getcwd() + directory_of_account):
-                        if file.endswith('.txt'):
-                            data_to_db[account]['path_text'].append(os.getcwd() + directory_of_account + file)
-                        elif file.endswith('.mp4'):
-                            data_to_db[account]['path_video'].append(os.getcwd() + directory_of_account + file)
-                        elif file.endswith('.jpg'):
-                            data_to_db[account]['path_photo'].append(os.getcwd() + directory_of_account + file)
+                # Creates folder if not exists inside yandex disk storage
+                create_folder(f'{account}')
+                print(f'Folder {account} has been successfully created')
             except:
-                print(f'Account {account} responded with status code 404 or does not have StoryItems to load')
+                print(f'Folder {account} has not been created')
+
+            # Changing directory to media
+            os.chdir('..' + '/media')
+
+            for file in os.listdir(os.getcwd() + directory_of_account):
+                if file.endswith('.jpg'):
+                    try:
+                        upload_file(os.getcwd() + f'{directory_of_account}/{file}', f'{account}/{file}')
+                        disk.publish(f'{account}/{file}')
+                        data_to_db[account]['path_photo'].append(get_uploaded_file_url(f'{account}/{file}'))
+                        try:
+                            text_file = imagehandle.ImageHandling(os.getcwd() + f'{directory_of_account}/{file}')
+                            data_to_db[account]['path_text'].append(text_file.extract_text_from_image()[os.getcwd() + f'{directory_of_account}/{file}'])
+                            print(data_to_db)
+                        except:
+                            print(f'Account {account} has no text on photo to drag it')
+                    except:
+                        print(f'Account {account} has no photo to append it to database')
+                elif file.endswith('.mp4'):
+                    try:
+                        upload_file(os.getcwd() + f'{directory_of_account}/{file}', f'{account}/{file}')
+                        disk.publish(f'{account}/{file}')
+                        data_to_db[account]['path_video'].append(get_uploaded_file_url(f'{account}/{file}'))
+                        print(data_to_db)
+                    except:
+                        print(f'Account {account} has no video to drag it')
 
             for account, data in data_to_db.items():
                 account_id = db_imas.get_account_id(account)
                 for path, collection in data.items():
                     for element in collection:
+                        print(collection_to_send)
                         if path == 'path_video':
-                            collection_to_send.append([account_id[0][0], 1, element])
+                            collection_to_send.append([account_id[0][0], 1, element, ''])
                         elif path == 'path_photo':
-                            collection_to_send.append([account_id[0][0], 2, element])
+                            collection_to_send.append([account_id[0][0], 2, element, ''])
                         elif path == 'path_text':
-                            collection_to_send.append([account_id[0][0], 3, element])
+                            collection_to_send.append([account_id[0][0], 3, '', element])
 
             accounts_counter += 1
 
@@ -157,7 +159,6 @@ def get_data_from_db():
     credential = db_social_services.get_account_credentials('soc_accounts')
     time.sleep(2)
     proxy = db_social_services.get_proxies('proxies')
-    print(proxy)
 
     return accounts, credential, proxy
 
@@ -229,6 +230,5 @@ if __name__ == '__main__':
     instagram_accounts, credentials, proxies = get_data_from_db()
     main(instagram_accounts, credentials, proxies)
 
-
-
+    # upload_file('/home/newuser/work_artem/instagramstories/media/saraalpanova/stories/2023-03-13_10-57-42_UTC.jpg', 'saraalpanova/2023-03-13_10-57-42_UTC.jpg')
 

@@ -1,3 +1,4 @@
+import os
 import time
 
 from clickhouse_driver import Client
@@ -129,12 +130,10 @@ class ClickHouseDatabase:
         self.connection.execute(f"CREATE TABLE IF NOT EXISTS {args[0]} ({', '.join([arg for arg in args[1:]])}) ENGINE = MergeTree() ORDER BY account_id")
 
     def send_to_table(self, table_name: str, collection: [tuple, list]):
-        self.connection.execute(f"INSERT INTO {table_name} (account_id, type, path) VALUES", collection)
+        self.connection.execute(f"INSERT INTO {table_name} (account_id, type, path, text) VALUES", collection)
 
     def get_account_id(self, account):
         return self.connection.execute(f"SELECT id FROM {self.db_name}.resource_social WHERE screen_name = '{account}'")
-
-
 
 
 # a = ClickHouseDatabase('attachments', settings.attachments_db['host'], settings.attachments_db['port'], settings.attachments_db['user'], settings.attachments_db['password'])
@@ -143,8 +142,7 @@ class ClickHouseDatabase:
 #                'account_id INT',
 #                'type INT',
 #                'path VARCHAR(255)')
-# a.send_to_table('atc_resource', [[1, 1, 'https://google.com'], [1, 1, 'https://google.com'], [1, 1, 'https://google.com']])
-
+# a.send_to_table('atc_resource', [[12313, 1, 'sdjf', ''], [12313, 1, 'sdjf', ''], [12313, 1, '', 'dsfdsfs'], [12313, 1, '', 'esffsdf']])
 # c = ClickHouseDatabase('imas', settings.imas_db['host'], settings.imas_db['port'], settings.imas_db['user'], settings.imas_db['password'])
 # print([item[0] for item in c.get_data_for_parse('resource_social')])
 # m = MariaDataBase('social_services')
