@@ -1,6 +1,9 @@
+import datetime
 import os
 import time
 import yadisk
+import shutil
+
 
 from multiprocessing import Process
 from instagramstories import settings
@@ -27,17 +30,14 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
 
         username, password = credential
 
-        try:
-            # Simulates human behaviour
-            time.sleep(15)
-
+        # try:
             # Login into account
-            if login(username, password):
+        login(username, password)
                 # Collect StoryItems while being logged-in
-                collect_data()
-        except:
-            print(f'Probably {credential} is blocked')
-            log.logger.warning(f'Probably {credential} is blocked')
+        collect_data()
+        # except:
+        #     print(f'Probably {credential} is blocked')
+        #     log.logger.warning(f'Probably {credential} is blocked')
 
     def login(username, password):
         try:
@@ -69,6 +69,8 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             log.logger.warning('There is no account to parse!')
             return
 
+        os.chdir('..' + '/media')
+
         accounts_counter = 1
         for account in instagram_accounts:
             data_to_db[account] = {'path_video': [], 'path_photo': [], 'path_text': []}
@@ -77,60 +79,95 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             directory_of_account = f'/{account}/stories'
             try:
                 # Simulates human behaviour
-                time.sleep(15)
+                time.sleep(7)
+                user = loader_init.LoadStoriesOfUser(account)
 
                 # Collect stories from account
-                user = loader_init.LoadStoriesOfUser(account)
                 user.download_stories_of_target()
-            except Exception:
+            except:
                 log.logger.warning(f'There is an error while loading data from {account}')
 
             try:
-                # Creates folder if not exists inside yandex disk storage
-                create_folder(f'{account}')
-                print(f'Folder {account} has been successfully created')
+                # Creates empty folder if there haven't been downloaded any stories
+                # This logic handles creating folders inside yandex disk
+                os.chmod(os.O_WRONLY, mode=0o777)
+                os.mkdir(os.getcwd() + f'/{account}')
+                os.chdir(os.getcwd() + f'/{account}')
+                os.mkdir(os.getcwd() + '/stories')
+                os.chdir('..')
             except:
-                print(f'Folder {account} has not been created')
+                log.logger.warning(f'Empty folder for {account} have not been created')
 
-            # Changing directory to media
-            os.chdir('..' + '/media')
-
-            for file in os.listdir(os.getcwd() + directory_of_account):
-                if file.endswith('.jpg'):
+            if os.listdir(os.getcwd() + directory_of_account):
+                # Check if uploaded files has mp4 or jpg formats
+                if any(map(lambda _file: _file.endswith('.jpg') or _file.endswith('.mp4'), os.listdir(os.getcwd() + directory_of_account))):
                     try:
-                        upload_file(os.getcwd() + f'{directory_of_account}/{file}', f'{account}/{file}')
-                        disk.publish(f'{account}/{file}')
-                        data_to_db[account]['path_photo'].append(get_uploaded_file_url(f'{account}/{file}'))
+                        # Creates folder if not exists inside yandex disk storage
+                        create_folder(f'{account}')
+
+                        log.logger.warning(f'Folder {account} has been successfully created')
+                    except:
+                        log.logger.warning(f'Folder {account} has not been created')
+
+            if os.listdir(os.getcwd() + directory_of_account):
+                for file in os.listdir(os.getcwd() + directory_of_account):
+                    # Handling image files
+                    if file.endswith('.jpg'):
                         try:
-                            text_file = imagehandle.ImageHandling(os.getcwd() + f'{directory_of_account}/{file}')
-                            data_to_db[account]['path_text'].append(text_file.extract_text_from_image()[os.getcwd() + f'{directory_of_account}/{file}'])
-                            print(data_to_db)
-                        except:
-                            print(f'Account {account} has no text on photo to drag it')
-                    except:
-                        print(f'Account {account} has no photo to append it to database')
-                elif file.endswith('.mp4'):
-                    try:
-                        upload_file(os.getcwd() + f'{directory_of_account}/{file}', f'{account}/{file}')
-                        disk.publish(f'{account}/{file}')
-                        data_to_db[account]['path_video'].append(get_uploaded_file_url(f'{account}/{file}'))
-                        print(data_to_db)
-                    except:
-                        print(f'Account {account} has no video to drag it')
+                            # Upload image files into yandex disk
+                            upload_file(os.getcwd() + f'{directory_of_account}/{file}', f'{account}/{file}')
 
-            for account, data in data_to_db.items():
-                account_id = db_imas.get_account_id(account)
-                for path, collection in data.items():
-                    for element in collection:
-                        print(collection_to_send)
-                        if path == 'path_video':
-                            collection_to_send.append([account_id[0][0], 1, element, ''])
-                        elif path == 'path_photo':
-                            collection_to_send.append([account_id[0][0], 2, element, ''])
-                        elif path == 'path_text':
-                            collection_to_send.append([account_id[0][0], 3, '', element])
+                            # Mark uploaded file as published
+                            disk.publish(f'{account}/{file}')
+
+                            public_url = get_uploaded_file_url(f'{account}/{file}')
+                            data_to_db[account]['path_photo'].append(public_url)
+                        except:
+                            log.logger.warning(f'Account {account} has no photo to append it to database')
+
+                        try:
+                            # Extract text from photo
+                            text_file = imagehandle.ImageHandling(os.getcwd() + f'{directory_of_account}/{file}')
+                            data_to_db[account]['path_text'].append(text_file.extract_text_from_image())
+                        except:
+                            log.logger.warning(f'Account {account} has no text on photo to drag it')
+
+                    # Handling video files
+                    elif file.endswith('.mp4'):
+                        try:
+                            # Upload video files into yandex disk
+                            upload_file(os.getcwd() + f'{directory_of_account}/{file}', f'{account}/{file}')
+
+                            # Mark uploaded files as published
+                            disk.publish(f'{account}/{file}')
+
+                            public_url = get_uploaded_file_url(f'{account}/{file}')
+                            data_to_db[account]['path_video'].append(get_uploaded_file_url(public_url))
+                        except:
+                            log.logger.warning(f'Account {account} has no video to drag it')
+                    else:
+                        continue
+
+            try:
+                # Preparing data for the migration
+                for _account, data in data_to_db.items():
+                    account_id = db_imas.get_account_id(_account)
+                    for path, collection in data.items():
+                        for element in collection:
+                            print(collection_to_send)
+                            if path == 'path_video':
+                                collection_to_send.append([account_id[0][0], 1, element, '', str(datetime.datetime.now()).split('.')[0]])
+                            elif path == 'path_photo':
+                                collection_to_send.append([account_id[0][0], 2, element, '', str(datetime.datetime.now()).split('.')[0]])
+                            elif path == 'path_text':
+                                collection_to_send.append([account_id[0][0], 3, '', element, str(datetime.datetime.now()).split('.')[0]])
+            except:
+                log.logger.warning(f'Problem with push to collection {collection_to_send} occurred')
 
             accounts_counter += 1
+
+            # For debugging
+            log.logger.warning(f'Data to db {data_to_db}')
 
             if accounts_counter % 3 == 0 and len(collection_to_send) > 0:
                 try:
@@ -145,6 +182,11 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                 except:
                     log.logger.warning(f'There is a problem with adding collection {collection_to_send}')
 
+            if os.path.exists(os.getcwd() + directory_of_account):
+                # Recursively deletes directory and all files of account from media directory
+                shutil.rmtree(os.getcwd() + f'/{account}')
+                log.logger.warning(f'Directory {directory_of_account} successfully deleted')
+
     # Maintain parser log-in and collecting data logic
     login_handle()
 
@@ -157,7 +199,6 @@ def get_data_from_db():
 
     accounts = [account[0] for account in db_imas.get_data_for_parse('resource_social')]
     credential = db_social_services.get_account_credentials('soc_accounts')
-    time.sleep(2)
     proxy = db_social_services.get_proxies('proxies')
 
     return accounts, credential, proxy
@@ -232,3 +273,24 @@ if __name__ == '__main__':
 
     # upload_file('/home/newuser/work_artem/instagramstories/media/saraalpanova/stories/2023-03-13_10-57-42_UTC.jpg', 'saraalpanova/2023-03-13_10-57-42_UTC.jpg')
 
+    # account = 'check'
+    # shutil.rmtree(f'/home/newuser/work_artem/instagramstories/media/{account}')
+    #
+    # # Changing directory to media
+    # os.chdir('..' + '/media')
+    #
+    # account = 'erlanman'
+    # directory_of_account = f'/{account}/stories'
+    # if any(map(lambda _file: _file.endswith('.jpg') or _file.endswith('.mp4'), os.listdir(os.getcwd() + directory_of_account))):
+    #     print('yes')
+    # else:
+    #     print('no')
+
+    # os.chdir('..' + '/media')
+    # os.chmod(os.O_WRONLY, mode=0o777)
+    # os.mkdir(os.getcwd() + '/newacc')
+    # os.chdir(os.getcwd() + '/newacc')
+    # os.mkdir(os.getcwd() + '/stories')
+    # print(os.getcwd())
+    # os.chdir('..')
+    # print(os.getcwd())

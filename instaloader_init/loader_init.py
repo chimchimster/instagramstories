@@ -1,7 +1,6 @@
 import os
 import time
 import instaloader
-from instagramstories.yadisk_hanlde.yadisk_module import create_folder, upload_file, get_uploaded_file_url
 
 from instagramstories.logs.logs_config import LoggerHandle
 
@@ -23,7 +22,6 @@ class SignIn:
             loader.login(self.username, self.password)
 
             print(f'Successfully logged in with account: {self.username}')
-
         except Exception:
             log.logger.warning(f'Problem with signing to {self.username} account')
             return
@@ -55,8 +53,6 @@ class LoadStoriesOfUser:
         except:
             log.logger.warning(f'Problem downloading {self.target} stories')
             return
-
-
 
 
 
