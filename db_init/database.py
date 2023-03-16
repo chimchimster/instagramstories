@@ -8,7 +8,6 @@ from typing import Optional, List
 from instagramstories import settings
 from mysql.connector import connect, Error
 
-from instagramstories.accounts import get_cred, get_accs
 from instagramstories.logs.logs_config import LoggerHandle
 
 log = LoggerHandle()
@@ -47,7 +46,7 @@ class MariaDataBase:
         cursor.execute(f"CREATE DATABASE {self.db_name}")
         print('DATABASE SUCCESSFULLY CREATED')
 
-    db_decorator
+    @db_decorator
     def create_table(self, *args, **kwargs):
         connection = kwargs.pop('connection')
         cursor = connection.cursor()
@@ -101,6 +100,14 @@ class MariaDataBase:
         return [item for item in cursor.fetchall()]
 
     @db_decorator
+    def mark_account_as_used(self, table_name: str, login: str, work: int = 0, _type: str = 'INST_STORY_PARSER', *args, **kwargs) -> None:
+        connection = kwargs.pop('connection')
+        cursor = connection.cursor()
+
+        cursor.execute(f"USE {self.db_name}")
+        cursor.execute(f'UPDATE {table_name} SET work = {work} WHERE type = "{_type}" AND login = "{login}";')
+
+    @db_decorator
     def get_proxies(self, table_name: str, script: str = 'insta_story', limit: int = 5, *args, **kwargs):
         connection = kwargs.pop('connection')
         cursor = connection.cursor()
@@ -135,7 +142,8 @@ class ClickHouseDatabase:
     def get_account_id(self, account):
         return self.connection.execute(f"SELECT id FROM {self.db_name}.resource_social WHERE screen_name = '{account}'")
 
-
+# db_social_services = MariaDataBase('social_services')
+# db_social_services.mark_account_as_used('soc_accounts', 'an.gelgarcia881')
 # a = ClickHouseDatabase('attachments', settings.attachments_db['host'], settings.attachments_db['port'], settings.attachments_db['user'], settings.attachments_db['password'])
 # a.create_db()
 # a.create_table('atc_resource',

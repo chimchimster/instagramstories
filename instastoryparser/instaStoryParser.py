@@ -1,9 +1,8 @@
-import datetime
 import os
 import time
 import yadisk
 import shutil
-
+import datetime
 
 from multiprocessing import Process
 from instagramstories import settings
@@ -20,25 +19,32 @@ log.logger_config()
 
 disk = yadisk.YaDisk(token=yandex_disk_configuration['TOKEN'])
 
+
 def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies):
-
-    # Initiate collection which will be sent to database
-    collection_to_send = []
-
     def login_handle():
+        global username, password
+
         print(f'THIS IS {flow_number} FLOW NOW I USE THIS CREDENTIAL - {credential}')
 
         username, password = credential
 
-        # try:
+        try:
             # Login into account
-        login(username, password)
-                # Collect StoryItems while being logged-in
-        collect_data()
-        # except:
-        #     print(f'Probably {credential} is blocked')
-        #     log.logger.warning(f'Probably {credential} is blocked')
+            login(username, password)
+            # Collect StoryItems while being logged-in
+            collect_data()
+        except:
+            print(f'Probably {credential} is blocked')
+            log.logger.warning(f'Probably {credential} is blocked')
 
+    def mark_account_in_db(func):
+        def wrapper(username, password):
+            result = func(username, password)
+            db_social_services.mark_account_as_used('soc_accounts', username)
+            return result
+        return wrapper
+
+    @mark_account_in_db
     def login(username, password):
         try:
             # Trying to sign in into user's account
@@ -59,11 +65,36 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             return
 
     def collect_data():
+        # Initiate collection which will be sent to database
+        collection_to_send = []
+
         # Data which must be sent to database
         data_to_db = {}
 
+        # Object which handles refilling free space inside yandex disk (in megabytes)
+        yandex_disk_capacity = 5000
+
         def migration_to_attachments():
+            nonlocal collection_to_send
+
+            # Delete all duplicates inside collection to send
+            collection_to_send = list(map(list, set(map(tuple, collection_to_send))))
+
+            # Migrate to atc_resource
             db_attachments.send_to_table('atc_resource', collection_to_send)
+
+        def check_refilling_of_yandex_disk(_file, path_to_account):
+            nonlocal yandex_disk_capacity
+            # Determine file size
+            size = os.stat(f'{path_to_account}/{_file}').st_size / (1024 ** 2)
+            print(size)
+
+            # Check if file could be loaded within free yandex disk space
+            if size <= yandex_disk_capacity:
+                yandex_disk_capacity -= size
+                print(yandex_disk_capacity)
+                return True
+            return False
 
         if not instagram_accounts:
             log.logger.warning('There is no account to parse!')
@@ -71,10 +102,15 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
 
         os.chdir('..' + '/media')
 
+        # Handles migration and reloading session at the same time
         accounts_counter = 1
+
         for account in instagram_accounts:
             data_to_db[account] = {'path_video': [], 'path_photo': [], 'path_text': []}
+
+            # Track on working accounts to determine where errors could be reached
             print(account, accounts_counter)
+            log.logger.warning(f'Working account {account}. Its counter = {accounts_counter}')
 
             directory_of_account = f'/{account}/stories'
             try:
@@ -83,7 +119,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                 user = loader_init.LoadStoriesOfUser(account)
 
                 # Collect stories from account
-                user.download_stories_of_target()
+                user.download_stories_of_target(username, password, accounts_counter)
             except:
                 log.logger.warning(f'There is an error while loading data from {account}')
 
@@ -114,14 +150,19 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                     # Handling image files
                     if file.endswith('.jpg'):
                         try:
-                            # Upload image files into yandex disk
-                            upload_file(os.getcwd() + f'{directory_of_account}/{file}', f'{account}/{file}')
+                            if check_refilling_of_yandex_disk(file, os.getcwd() + directory_of_account):
+                                # Upload image files into yandex disk
+                                upload_file(os.getcwd() + f'{directory_of_account}/{file}', f'{account}/{file}')
 
-                            # Mark uploaded file as published
-                            disk.publish(f'{account}/{file}')
+                                # Mark uploaded file as published
+                                disk.publish(f'{account}/{file}')
 
-                            public_url = get_uploaded_file_url(f'{account}/{file}')
-                            data_to_db[account]['path_photo'].append(public_url)
+                                public_url = get_uploaded_file_url(f'{account}/{file}')
+                                data_to_db[account]['path_photo'].append(public_url)
+                            else:
+                                log.logger.warning('Yandex disk is refilled')
+                                # HERE MUST BE A DATABASE FUNCTIONALITY WHICH TAKES NEW YANDEX DISK TOKEN
+                                break
                         except:
                             log.logger.warning(f'Account {account} has no photo to append it to database')
 
@@ -135,36 +176,35 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                     # Handling video files
                     elif file.endswith('.mp4'):
                         try:
-                            # Upload video files into yandex disk
-                            upload_file(os.getcwd() + f'{directory_of_account}/{file}', f'{account}/{file}')
+                            if check_refilling_of_yandex_disk(file, os.getcwd() + directory_of_account):
+                                # Upload video files into yandex disk
+                                upload_file(os.getcwd() + f'{directory_of_account}/{file}', f'{account}/{file}')
 
-                            # Mark uploaded files as published
-                            disk.publish(f'{account}/{file}')
+                                # Mark uploaded files as published
+                                disk.publish(f'{account}/{file}')
 
-                            public_url = get_uploaded_file_url(f'{account}/{file}')
-                            data_to_db[account]['path_video'].append(get_uploaded_file_url(public_url))
+                                public_url = get_uploaded_file_url(f'{account}/{file}')
+                                data_to_db[account]['path_video'].append(get_uploaded_file_url(public_url))
+                            else:
+                                log.logger.warning('Yandex disk is refilled')
+                                # HERE MUST BE A DATABASE FUNCTIONALITY WHICH TAKES NEW YANDEX DISK TOKEN
+                                break
                         except:
                             log.logger.warning(f'Account {account} has no video to drag it')
                     else:
                         continue
 
-            try:
-                # Preparing data for the migration
-                for _account, data in data_to_db.items():
-                    account_id = db_imas.get_account_id(_account)
-                    for path, collection in data.items():
-                        for element in collection:
-                            print(collection_to_send)
-                            if path == 'path_video':
-                                collection_to_send.append([account_id[0][0], 1, element, '', str(datetime.datetime.now()).split('.')[0]])
-                            elif path == 'path_photo':
-                                collection_to_send.append([account_id[0][0], 2, element, '', str(datetime.datetime.now()).split('.')[0]])
-                            elif path == 'path_text':
-                                collection_to_send.append([account_id[0][0], 3, '', element, str(datetime.datetime.now()).split('.')[0]])
-            except:
-                log.logger.warning(f'Problem with push to collection {collection_to_send} occurred')
-
-            accounts_counter += 1
+            # Preparing data for the migration
+            for _account, data in data_to_db.items():
+                account_id = db_imas.get_account_id(_account)
+                for path, collection in data.items():
+                    for element in collection:
+                        if path == 'path_video':
+                            collection_to_send.append([account_id[0][0], 1, element, '', str(datetime.datetime.now()).split('.')[0]])
+                        elif path == 'path_photo':
+                            collection_to_send.append([account_id[0][0], 2, element, '', str(datetime.datetime.now()).split('.')[0]])
+                        elif path == 'path_text':
+                            collection_to_send.append([account_id[0][0], 3, '', element, str(datetime.datetime.now()).split('.')[0]])
 
             # For debugging
             log.logger.warning(f'Data to db {data_to_db}')
@@ -182,17 +222,19 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                 except:
                     log.logger.warning(f'There is a problem with adding collection {collection_to_send}')
 
-            if os.path.exists(os.getcwd() + directory_of_account):
+            if os.path.exists(os.getcwd() + f'/{account}'):
                 # Recursively deletes directory and all files of account from media directory
                 shutil.rmtree(os.getcwd() + f'/{account}')
                 log.logger.warning(f'Directory {directory_of_account} successfully deleted')
+
+            accounts_counter += 1
 
     # Maintain parser log-in and collecting data logic
     login_handle()
 
 
 def get_data_from_db():
-    global db_attachments, db_imas
+    global db_attachments, db_imas, db_social_services
     db_imas = ClickHouseDatabase('imas', settings.imas_db['host'], settings.imas_db['port'], settings.imas_db['user'], settings.imas_db['password'])
     db_social_services = MariaDataBase('social_services')
     db_attachments = ClickHouseDatabase('attachments', settings.attachments_db['host'], settings.attachments_db['port'], settings.attachments_db['user'], settings.attachments_db['password'])
@@ -205,8 +247,7 @@ def get_data_from_db():
 
 
 def main(instagram_accounts, credentials, proxies):
-    global db_attachments, db_imas
-
+    global db_imas, db_attachments, db_social_services
     # Here should be 5 streams
     # that's why let's divide
     # instagram_accounts/credentials/proxies into 5 parts
@@ -223,7 +264,7 @@ def main(instagram_accounts, credentials, proxies):
     streams = len(flows)
 
     # Determine delimiter
-    delimiter = len(instagram_accounts) // streams
+    chunk = len(instagram_accounts) // streams
 
     # Determines accounts_set
     accounts_set = []
@@ -232,8 +273,8 @@ def main(instagram_accounts, credentials, proxies):
     procs = []
 
     # Algorithm which split instagram_accounts into equivalent chunks
-    for i in range(0, len(instagram_accounts), delimiter):
-        accounts_set.append(instagram_accounts[i:i + delimiter])
+    for start in range(0, len(instagram_accounts), chunk):
+        accounts_set.append(instagram_accounts[start:start + chunk])
 
     def fill_flows(object: [tuple, list], obj_name: str) -> None:
         for num, lst in enumerate(object):
@@ -268,6 +309,7 @@ def main(instagram_accounts, credentials, proxies):
 
 
 if __name__ == '__main__':
+    global db_imas, db_attachments, db_social_services
     instagram_accounts, credentials, proxies = get_data_from_db()
     main(instagram_accounts, credentials, proxies)
 
