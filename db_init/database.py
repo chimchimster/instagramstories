@@ -137,7 +137,7 @@ class ClickHouseDatabase:
         self.connection.execute(f"CREATE TABLE IF NOT EXISTS {args[0]} ({', '.join([arg for arg in args[1:]])}) ENGINE = MergeTree() ORDER BY account_id")
 
     def send_to_table(self, table_name: str, collection: [tuple, list]):
-        self.connection.execute(f"INSERT INTO {table_name} (account_id, type, path, text, timestamp) VALUES", collection)
+        self.connection.execute(f"INSERT INTO {table_name} (account_id, path_vid, path_img, content) VALUES", collection)
 
     def get_account_id(self, account):
         return self.connection.execute(f"SELECT id FROM {self.db_name}.resource_social WHERE screen_name = '{account}'")

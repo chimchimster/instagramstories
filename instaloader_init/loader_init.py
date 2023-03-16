@@ -58,6 +58,7 @@ class LoadStoriesOfUser:
 
             loader.download_stories(userids=[profile.userid])
 
+
             time.sleep(15)
         except:
             log.logger.warning(f'Problem downloading {self.target} stories')

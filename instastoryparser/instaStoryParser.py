@@ -83,6 +83,10 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             # Migrate to atc_resource
             db_attachments.send_to_table('atc_resource', collection_to_send)
 
+            # Empty space inside of structure which stores elements of collection
+            collection_to_send.clear()
+            data_to_db.clear()
+
         def check_refilling_of_yandex_disk(_file, path_to_account):
             nonlocal yandex_disk_capacity
             # Determine file size
@@ -100,6 +104,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             log.logger.warning('There is no account to parse!')
             return
 
+        # Jump to media directory
         os.chdir('..' + '/media')
 
         # Handles migration and reloading session at the same time
@@ -162,7 +167,6 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                             else:
                                 log.logger.warning('Yandex disk is refilled')
                                 # HERE MUST BE A DATABASE FUNCTIONALITY WHICH TAKES NEW YANDEX DISK TOKEN
-                                break
                         except:
                             log.logger.warning(f'Account {account} has no photo to append it to database')
 
@@ -184,11 +188,12 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                                 disk.publish(f'{account}/{file}')
 
                                 public_url = get_uploaded_file_url(f'{account}/{file}')
-                                data_to_db[account]['path_video'].append(get_uploaded_file_url(public_url))
+                                print(public_url)
+                                data_to_db[account]['path_video'].append(public_url)
+                                print(f'DAtA TO DB {data_to_db}')
                             else:
                                 log.logger.warning('Yandex disk is refilled')
                                 # HERE MUST BE A DATABASE FUNCTIONALITY WHICH TAKES NEW YANDEX DISK TOKEN
-                                break
                         except:
                             log.logger.warning(f'Account {account} has no video to drag it')
                     else:
@@ -200,14 +205,13 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                 for path, collection in data.items():
                     for element in collection:
                         if path == 'path_video':
-                            collection_to_send.append([account_id[0][0], 1, element, '', str(datetime.datetime.now()).split('.')[0]])
+                            collection_to_send.append([account_id[0][0], element, 'empty', 'empty'])
                         elif path == 'path_photo':
-                            collection_to_send.append([account_id[0][0], 2, element, '', str(datetime.datetime.now()).split('.')[0]])
-                        elif path == 'path_text':
-                            collection_to_send.append([account_id[0][0], 3, '', element, str(datetime.datetime.now()).split('.')[0]])
+                            collection_to_send.append([account_id[0][0], 'empty', element, data['path_text'][data['path_photo'].index(element)]])
 
             # For debugging
             log.logger.warning(f'Data to db {data_to_db}')
+            log.logger.warning(f'Collection to send {collection_to_send}')
 
             if accounts_counter % 3 == 0 and len(collection_to_send) > 0:
                 try:
@@ -215,10 +219,6 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                     migration_to_attachments()
 
                     log.logger.warning(f'Data successfully added to database {collection_to_send}')
-
-                    # Empty space inside of structure which stores elements of collection
-                    collection_to_send.clear()
-                    data_to_db.clear()
                 except:
                     log.logger.warning(f'There is a problem with adding collection {collection_to_send}')
 
@@ -308,31 +308,10 @@ def main(instagram_accounts, credentials, proxies):
         proc.join()
 
 
-if __name__ == '__main__':
+def start():
     global db_imas, db_attachments, db_social_services
     instagram_accounts, credentials, proxies = get_data_from_db()
     main(instagram_accounts, credentials, proxies)
 
-    # upload_file('/home/newuser/work_artem/instagramstories/media/saraalpanova/stories/2023-03-13_10-57-42_UTC.jpg', 'saraalpanova/2023-03-13_10-57-42_UTC.jpg')
-
-    # account = 'check'
-    # shutil.rmtree(f'/home/newuser/work_artem/instagramstories/media/{account}')
-    #
-    # # Changing directory to media
-    # os.chdir('..' + '/media')
-    #
-    # account = 'erlanman'
-    # directory_of_account = f'/{account}/stories'
-    # if any(map(lambda _file: _file.endswith('.jpg') or _file.endswith('.mp4'), os.listdir(os.getcwd() + directory_of_account))):
-    #     print('yes')
-    # else:
-    #     print('no')
-
-    # os.chdir('..' + '/media')
-    # os.chmod(os.O_WRONLY, mode=0o777)
-    # os.mkdir(os.getcwd() + '/newacc')
-    # os.chdir(os.getcwd() + '/newacc')
-    # os.mkdir(os.getcwd() + '/stories')
-    # print(os.getcwd())
-    # os.chdir('..')
-    # print(os.getcwd())
+if __name__ == '__main__':
+    start()

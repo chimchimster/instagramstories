@@ -13,7 +13,7 @@ def create_folder(path):
 
 def upload_file(path_to_file, path_to_folder, replace=False):
     res = requests.get(f'{yadisk_conf.yandex_disk_configuration["URL"]}/upload?path={path_to_folder}&overwrite={replace}', headers=yadisk_conf.yandex_disk_configuration["headers"]).json()
-    print(res)
+    print(f'UPLOADING INTO YANDEX DISK... {path_to_folder}')
     if 'href' not in res.keys():
         log.logger.warning(f'There is a problem uploading file {path_to_folder}')
     else:
