@@ -2,10 +2,10 @@ import os
 import time
 import yadisk
 import shutil
-import datetime
 
 from multiprocessing import Process
 from instagramstories import settings
+from instagramstories.yadisk_hanlde import yadisk_conf
 from instagramstories.imagehandling import imagehandle
 from instagramstories.instaloader_init import loader_init
 from instagramstories.logs.logs_config import LoggerHandle
@@ -23,8 +23,7 @@ disk = yadisk.YaDisk(token=yandex_disk_configuration['TOKEN'])
 def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies):
     def login_handle():
         global username, password
-
-        print(f'THIS IS {flow_number} FLOW NOW I USE THIS CREDENTIAL - {credential}')
+        log.logger.warning(f'THIS IS {flow_number} FLOW NOW I USE THIS CREDENTIAL - {credential}')
 
         username, password = credential
 
@@ -34,7 +33,6 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             # Collect StoryItems while being logged-in
             collect_data()
         except:
-            print(f'Probably {credential} is blocked')
             log.logger.warning(f'Probably {credential} is blocked')
 
     def mark_account_in_db(func):
@@ -65,38 +63,38 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             return
 
     def collect_data():
-        # Initiate collection which will be sent to database
-        collection_to_send = []
-
         # Data which must be sent to database
         data_to_db = {}
 
-        # Object which handles refilling free space inside yandex disk (in megabytes)
-        yandex_disk_capacity = 5000
+        # Collection which will be sent to database
+        collection_to_send = []
 
-        def migration_to_attachments():
-            nonlocal collection_to_send
+        # Initial settings for yandex disk token
+        yadisk_conf.TOKEN = db_social_services.get_new_yadisk_token('yandex_tokens')
 
+        def migration_to_attachments(collection_to_send):
             # Delete all duplicates inside collection to send
             collection_to_send = list(map(list, set(map(tuple, collection_to_send))))
 
-            # Migrate to atc_resource
-            db_attachments.send_to_table('atc_resource', collection_to_send)
+            try:
+                # Migrate to atc_resource
+                db_attachments.send_to_table('atc_resource', collection_to_send)
 
-            # Empty space inside of structure which stores elements of collection
-            collection_to_send.clear()
-            data_to_db.clear()
+                log.logger.warning(f'Migration of collection {collection_to_send} is successful')
+            except:
+                log.logger.warning(f'Problem with migrating collection {collection_to_send}')
 
         def check_refilling_of_yandex_disk(_file, path_to_account):
-            nonlocal yandex_disk_capacity
+            # Object which handles refilling free space inside yandex disk (in megabytes)
+            yandex_disk_capacity = db_social_services.get_yandex_disk_capacity('yandex_tokens', yadisk_conf.TOKEN)
+
             # Determine file size
             size = os.stat(f'{path_to_account}/{_file}').st_size / (1024 ** 2)
-            print(size)
 
             # Check if file could be loaded within free yandex disk space
             if size <= yandex_disk_capacity:
-                yandex_disk_capacity -= size
-                print(yandex_disk_capacity)
+                space_used = yandex_disk_capacity - size
+                db_social_services.update_yandex_disk_capacity('yandex_tokens', space_used, yadisk_conf.TOKEN)
                 return True
             return False
 
@@ -113,8 +111,6 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
         for account in instagram_accounts:
             data_to_db[account] = {'path_video': [], 'path_photo': [], 'path_text': []}
 
-            # Track on working accounts to determine where errors could be reached
-            print(account, accounts_counter)
             log.logger.warning(f'Working account {account}. Its counter = {accounts_counter}')
 
             directory_of_account = f'/{account}/stories'
@@ -166,15 +162,18 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                                 data_to_db[account]['path_photo'].append(public_url)
                             else:
                                 log.logger.warning('Yandex disk is refilled')
-                                # HERE MUST BE A DATABASE FUNCTIONALITY WHICH TAKES NEW YANDEX DISK TOKEN
+                                db_social_services.update_status_of_yadisk_token('yandex_tokens', yadisk_conf.TOKEN)
+                                yadisk_conf.TOKEN = db_social_services.get_new_yadisk_token('yandex_tokens')
                         except:
                             log.logger.warning(f'Account {account} has no photo to append it to database')
 
                         try:
-                            # Extract text from photo
-                            text_file = imagehandle.ImageHandling(os.getcwd() + f'{directory_of_account}/{file}')
-                            data_to_db[account]['path_text'].append(text_file.extract_text_from_image())
+                            # Extract text from image
+                            image = imagehandle.ImageHandling(os.getcwd() + f'{directory_of_account}/{file}')
+                            text = image.extract_text_from_image()
+                            data_to_db[account]['path_text'].append(text)
                         except:
+                            data_to_db[account]['path_text'].append('empty')
                             log.logger.warning(f'Account {account} has no text on photo to drag it')
 
                     # Handling video files
@@ -188,12 +187,10 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                                 disk.publish(f'{account}/{file}')
 
                                 public_url = get_uploaded_file_url(f'{account}/{file}')
-                                print(public_url)
                                 data_to_db[account]['path_video'].append(public_url)
-                                print(f'DAtA TO DB {data_to_db}')
                             else:
                                 log.logger.warning('Yandex disk is refilled')
-                                # HERE MUST BE A DATABASE FUNCTIONALITY WHICH TAKES NEW YANDEX DISK TOKEN
+                                yadisk_conf.TOKEN = db_social_services.get_new_yadisk_token('yandex_tokens')
                         except:
                             log.logger.warning(f'Account {account} has no video to drag it')
                     else:
@@ -203,22 +200,31 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             for _account, data in data_to_db.items():
                 account_id = db_imas.get_account_id(_account)
                 for path, collection in data.items():
-                    for element in collection:
-                        if path == 'path_video':
-                            collection_to_send.append([account_id[0][0], element, 'empty', 'empty'])
-                        elif path == 'path_photo':
-                            collection_to_send.append([account_id[0][0], 'empty', element, data['path_text'][data['path_photo'].index(element)]])
+                    if collection:
+                        for element in collection:
+                            if path == 'path_video':
+                                collection_to_send.append([account_id[0][0], element, 'empty', 'empty'])
+                            elif path == 'path_photo':
+                                collection_to_send.append([account_id[0][0], 'empty', element, data['path_text'][data['path_photo'].index(element)]])
+                            else:
+                                continue
+                    else:
+                        continue
 
-            # For debugging
+            # For debugging sending collections
             log.logger.warning(f'Data to db {data_to_db}')
             log.logger.warning(f'Collection to send {collection_to_send}')
 
             if accounts_counter % 3 == 0 and len(collection_to_send) > 0:
                 try:
                     # Migrate
-                    migration_to_attachments()
+                    migration_to_attachments(collection_to_send)
 
                     log.logger.warning(f'Data successfully added to database {collection_to_send}')
+
+                    # Empty space inside of structure which stores elements of collection
+                    collection_to_send.clear()
+                    data_to_db.clear()
                 except:
                     log.logger.warning(f'There is a problem with adding collection {collection_to_send}')
 
@@ -235,9 +241,10 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
 
 def get_data_from_db():
     global db_attachments, db_imas, db_social_services
+
     db_imas = ClickHouseDatabase('imas', settings.imas_db['host'], settings.imas_db['port'], settings.imas_db['user'], settings.imas_db['password'])
     db_social_services = MariaDataBase('social_services')
-    db_attachments = ClickHouseDatabase('attachments', settings.attachments_db['host'], settings.attachments_db['port'], settings.attachments_db['user'], settings.attachments_db['password'])
+    db_attachments = ClickHouseDatabase('recognition', settings.attachments_db['host'], settings.attachments_db['port'], settings.attachments_db['user'], settings.attachments_db['password'])
 
     accounts = [account[0] for account in db_imas.get_data_for_parse('resource_social')]
     credential = db_social_services.get_account_credentials('soc_accounts')
@@ -248,16 +255,17 @@ def get_data_from_db():
 
 def main(instagram_accounts, credentials, proxies):
     global db_imas, db_attachments, db_social_services
+
     # Here should be 5 streams
     # that's why let's divide
     # instagram_accounts/credentials/proxies into 5 parts
 
     flows = {
         1: {'accounts': '', 'credentials': '', 'proxy': ''},
-        # 2: {'accounts': '', 'credentials': '', 'proxy': ''},
-        # 3: {'accounts': '', 'credentials': '', 'proxy': ''},
-        # 4: {'accounts': '', 'credentials': '', 'proxy': ''},
-        # 5: {'accounts': '', 'credentials': '', 'proxy': ''},
+        2: {'accounts': '', 'credentials': '', 'proxy': ''},
+        3: {'accounts': '', 'credentials': '', 'proxy': ''},
+        4: {'accounts': '', 'credentials': '', 'proxy': ''},
+        5: {'accounts': '', 'credentials': '', 'proxy': ''},
     }
 
     # Number of streams
@@ -312,6 +320,7 @@ def start():
     global db_imas, db_attachments, db_social_services
     instagram_accounts, credentials, proxies = get_data_from_db()
     main(instagram_accounts, credentials, proxies)
+
 
 if __name__ == '__main__':
     start()

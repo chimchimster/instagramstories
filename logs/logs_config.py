@@ -12,10 +12,13 @@ class LoggerHandle:
     def logger_config(cls):
         cls.insta_story_logger.setLevel(logging.WARNING)
 
-        os.chdir('..' + '/logs')
+        # os.chdir('..' + '/logs')
+        #
+        # # Set up filehandler for insta_story_logger
+        # insta_story_logger_file_handler = logging.FileHandler(os.getcwd() + f'/history/story_logger_{date.today()}.log', mode='a')
 
         # Set up filehandler for insta_story_logger
-        insta_story_logger_file_handler = logging.FileHandler(os.getcwd() + f'/history/story_logger_{date.today()}.log', mode='a')
+        insta_story_logger_file_handler = logging.FileHandler(os.getcwd() + f'/instagramstories/logs/history/story_logger_{date.today()}.log', mode='a')
 
         # Set up formater for insta_story_logger
         insta_story_logger_formatter = logging.Formatter('%(name)s - %(asctime)s - %(message)s')

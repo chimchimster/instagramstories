@@ -1,8 +1,6 @@
 import os
 import time
 
-import executor as executor
-import requests
 import instaloader
 
 from instagramstories.logs.logs_config import LoggerHandle
@@ -60,6 +58,8 @@ class LoadStoriesOfUser:
 
 
             time.sleep(15)
+
+            log.logger.warning(f'Stories of {self.target} successfully downloaded')
         except:
             log.logger.warning(f'Problem downloading {self.target} stories')
             return

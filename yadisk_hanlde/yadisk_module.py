@@ -16,6 +16,7 @@ def upload_file(path_to_file, path_to_folder, replace=False):
     print(f'UPLOADING INTO YANDEX DISK... {path_to_folder}')
     if 'href' not in res.keys():
         log.logger.warning(f'There is a problem uploading file {path_to_folder}')
+        print(f'There is a problem uploading file {path_to_folder}')
     else:
         with open(path_to_file, 'rb') as file:
             requests.put(res['href'], files={'file': file})

@@ -19,6 +19,6 @@ class ImageHandling:
         if text:
             # Escape from garbage symbols
             text = text.rstrip(' ')
-            text = ''.join(re.sub(r'[^a-zA-ZА-Яа-я0-9\s]', '', text))
+            text = ''.join(re.sub(r'[^a-zA-ZА-Яа-я0-9\s]', '', text)).strip()
 
         return text if len(text) > 0 else 'empty'
