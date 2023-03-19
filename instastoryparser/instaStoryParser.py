@@ -17,14 +17,6 @@ from instagramstories.yadisk_hanlde.yadisk_module import create_folder, upload_f
 log = LoggerHandle()
 log.logger_config()
 
-if not yadisk_conf.TOKEN:
-    global db_social_services
-    yadisk_conf.TOKEN = db_social_services.get_new_yadisk_token('yandex_tokens')
-
-# Initial settings for YaDisk
-disk = yadisk.YaDisk(token=yandex_disk_configuration['TOKEN'])
-
-
 def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies):
     def login_handle():
         """ Maintaining presence in system.
@@ -45,7 +37,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             log.logger.warning(f'Probably {credential} is blocked')
 
     def mark_account_in_db(func):
-        """ Mars account in database that it's already taken """
+        """ Marks account in database that it's already taken """
 
         def wrapper(username, password):
             result = func(username, password)
@@ -368,6 +360,12 @@ def start():
     global db_imas, db_attachments, db_social_services
     instagram_accounts, credentials, proxies = get_data_from_db()
     chunks_processing(instagram_accounts, credentials, proxies)
+
+    if not yadisk_conf.TOKEN:
+        yadisk_conf.TOKEN = db_social_services.get_new_yadisk_token('yandex_tokens')
+
+    # Initial settings for YaDisk
+    disk = yadisk.YaDisk(token=yandex_disk_configuration['TOKEN'])
 
 
 if __name__ == '__main__':
