@@ -357,7 +357,7 @@ def chunks_processing(instagram_accounts, credentials, proxies):
 
 
 def start():
-    global db_imas, db_attachments, db_social_services
+    global db_imas, db_attachments, db_social_services, disk
     instagram_accounts, credentials, proxies = get_data_from_db()
     chunks_processing(instagram_accounts, credentials, proxies)
 
