@@ -8,7 +8,7 @@ class ImageHandling:
     def __init__(self, path_to_image: str) -> None:
         self.path_to_image = path_to_image
 
-    def extract_text_from_image(self):
+    def extract_text_from_image(self) -> str:
         # Open image with Pillow
         image = Image.open(self.path_to_image)
 

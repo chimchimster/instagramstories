@@ -17,11 +17,12 @@ class SignIn:
         self.password = password
 
     def sign_in(self):
+        """ Signing to instagram account """
         try:
             # Login into account
             loader.login(self.username, self.password)
 
-            print(f'Successfully logged in with account: {self.username}')
+            log.logger.warning(f'Successfully logged in with account: {self.username}')
         except Exception:
             log.logger.warning(f'Problem with signing to {self.username} account')
             return
@@ -31,7 +32,13 @@ class LoadStoriesOfUser:
     def __init__(self, target: str) -> None:
         self.target = target
 
-    def download_stories_of_target(self, username, password, accounts_counter):
+    def download_stories_of_target(self, username: str, password: str, accounts_counter: int):
+        """ Downloading stories of particular account.
+            NOTE!
+            accounts_counter is used for re-login each 10 parsed accounts
+            with old credentials but new anonymous session
+            otherwise you will meet 401 unauthorized HTTP error"""
+
         try:
             # Apply to specific User
             profile = instaloader.Profile.from_username(loader.context, self.target)
@@ -55,7 +62,6 @@ class LoadStoriesOfUser:
             time.sleep(8)
 
             loader.download_stories(userids=[profile.userid])
-
 
             time.sleep(15)
 
