@@ -23,7 +23,8 @@ class SignIn:
             loader.login(self.username, self.password)
 
             log.logger.warning(f'Successfully logged in with account: {self.username}')
-        except Exception:
+        except Exception as e:
+            log.logger.warning(e)
             log.logger.warning(f'Problem with signing to {self.username} account')
             return
 
@@ -57,15 +58,19 @@ class LoadStoriesOfUser:
                 loader.context._session = loader.context.get_anonymous_session()
 
                 new_authorization = SignIn(username, password)
+
                 new_authorization.sign_in()
 
             time.sleep(8)
-
-            loader.download_stories(userids=[profile.userid])
+            try:
+                loader.download_stories(userids=[profile.userid])
+                log.logger.warning(f'Stories of {self.target} successfully downloaded')
+            except Exception as e:
+                log.logger.warning(e)
+                log.logger.warning(f'Problem downloading {self.target} stories')
 
             time.sleep(15)
+        except Exception as e:
+            log.logger.warning(e)
 
-            log.logger.warning(f'Stories of {self.target} successfully downloaded')
-        except:
-            log.logger.warning(f'Problem downloading {self.target} stories')
             return

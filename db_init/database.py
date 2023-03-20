@@ -7,8 +7,8 @@ from mysql.connector import connect, Error
 
 from instagramstories.logs.logs_config import LoggerHandle
 
-log = LoggerHandle()
-log.logger_config()
+# log = LoggerHandle()
+# log.logger_config()
 
 
 def db_decorator(func):
@@ -23,8 +23,8 @@ def db_decorator(func):
         try:
             result = func(*args, connection=con, **kwargs)
         except Error as e:
-            log.logger.warning(e, 'SQL Failed!')
-            print(e, 'SQL Failed!')
+            # log.logger.warning(e, 'SQL Failed!')
+            pass
         else:
             con.commit()
             return result
@@ -177,7 +177,7 @@ class ClickHouseDatabase:
 
         self.connection.execute(f"INSERT INTO {self.db_name}.{table_name} (account_id, path_vid, path_img, content) VALUES", collection)
 
-    def get_account_id(self, account) -> int:
+    def get_account_id(self, account: str) -> int:
         """ Retrieves account_id from database """
 
-        return self.connection.execute(f"SELECT id FROM {self.db_name}.resource_social WHERE screen_name = '{account}'")
+        return self.connection.execute(f"SELECT id FROM {self.db_name}.resource_social WHERE screen_name = '{account}'")[0][0]

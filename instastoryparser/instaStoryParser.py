@@ -17,8 +17,9 @@ from instagramstories.yadisk_hanlde.yadisk_module import create_folder, upload_f
 log = LoggerHandle()
 log.logger_config()
 
+
 def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies):
-    def login_handle():
+    def login_handle() -> None:
         """ Maintaining presence in system.
             While we logged in we can parse data,
             otherwise stream simply closes. """
@@ -33,7 +34,8 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             login(username, password)
             # Collect StoryItems while being logged-in
             collect_data()
-        except:
+        except Exception as e:
+            log.logger.warning(e)
             log.logger.warning(f'Probably {credential} is blocked')
 
     def mark_account_in_db(func):
@@ -46,7 +48,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
         return wrapper
 
     @mark_account_in_db
-    def login(username, password):
+    def login(username, password) -> [None, bool]:
         """ Simple login handle with given credentials """
 
         try:
@@ -61,12 +63,14 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             }
 
             loader_init.loader.context._session.proxies = set_proxies
+
             signin.sign_in()
-        except:
+        except Exception as e:
+            log.logger.warning(e)
             log.logger.warning(f'Account {username} might be restricted')
             return
 
-    def collect_data():
+    def collect_data() -> None:
         """ Staying logged in collects all accessible data
             This function does next things:
                 1) Downloading Stories from instagram targets;
@@ -81,10 +85,10 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
         # Collection which will be sent to database
         collection_to_send = []
 
-        # Initial settings for yandex disk token
-        yadisk_conf.TOKEN = db_social_services.get_new_yadisk_token('yandex_tokens')
+        # Initial settings for YaDisk
+        disk = yadisk.YaDisk(token=yandex_disk_configuration['TOKEN'])
 
-        def migration_to_attachments(collection_to_send):
+        def migration_to_attachments(collection_to_send: list) -> None:
             """ Final migration of collected data to database. """
 
             # Delete all duplicates inside collection to send
@@ -95,10 +99,11 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                 db_attachments.send_to_table('atc_resource', collection_to_send)
 
                 log.logger.warning(f'Migration of collection {collection_to_send} is successful')
-            except:
+            except Exception as e:
+                log.logger.warning(e)
                 log.logger.warning(f'Problem with migrating collection {collection_to_send}')
 
-        def check_refilling_of_yandex_disk(_file, path_to_account):
+        def check_refilling_of_yandex_disk(_file: str, path_to_account: str) -> bool:
             """ Answers the question: how much free space in yandex disk is left? """
 
             # Object which handles refilling free space inside yandex disk (in megabytes)
@@ -114,6 +119,18 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                 return True
 
             return False
+
+        def load_and_save(_disk, _account, _directory_of_account: str, _file: str, key: str) -> None:
+            """ Uploading files into Yandex disk and saves public paths to collection """
+
+            # Upload image files into yandex disk
+            upload_file(os.getcwd() + f'{_directory_of_account}/{_file}', f'{_account}/{_file}')
+
+            # Mark uploaded file as published
+            _disk.publish(f'{_account}/{_file}')
+
+            public_url = get_uploaded_file_url(f'{_account}/{_file}')
+            data_to_db[_account][key].append(public_url)
 
         if not instagram_accounts:
             log.logger.warning('There is no account to parse!')
@@ -138,7 +155,8 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
 
                 # Collect stories from account
                 user.download_stories_of_target(username, password, accounts_counter)
-            except:
+            except Exception as e:
+                log.logger.warning(e)
                 log.logger.warning(f'There is an error while loading data from {account}')
 
             try:
@@ -149,7 +167,8 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                 os.chdir(os.getcwd() + f'/{account}')
                 os.mkdir(os.getcwd() + '/stories')
                 os.chdir('..')
-            except:
+            except Exception as e:
+                log.logger.warning(e)
                 log.logger.warning(f'Empty folder for {account} have not been created')
 
             if os.listdir(os.getcwd() + directory_of_account):
@@ -160,7 +179,8 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                         create_folder(f'{account}')
 
                         log.logger.warning(f'Folder {account} has been successfully created')
-                    except:
+                    except Exception as e:
+                        log.logger.warning(e)
                         log.logger.warning(f'Folder {account} has not been created')
 
             if os.listdir(os.getcwd() + directory_of_account):
@@ -169,14 +189,8 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                     if file.endswith('.jpg'):
                         try:
                             if check_refilling_of_yandex_disk(file, os.getcwd() + directory_of_account):
-                                # Upload image files into yandex disk
-                                upload_file(os.getcwd() + f'{directory_of_account}/{file}', f'{account}/{file}')
 
-                                # Mark uploaded file as published
-                                disk.publish(f'{account}/{file}')
-
-                                public_url = get_uploaded_file_url(f'{account}/{file}')
-                                data_to_db[account]['path_photo'].append(public_url)
+                                load_and_save(disk, account, directory_of_account, file, 'path_photo')
                             else:
                                 log.logger.warning('Yandex disk is refilled')
 
@@ -184,50 +198,36 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                                 db_social_services.update_status_of_yadisk_token('yandex_tokens', yadisk_conf.TOKEN)
                                 yadisk_conf.TOKEN = db_social_services.get_new_yadisk_token('yandex_tokens')
 
-                                # Upload image files into yandex disk
-                                upload_file(os.getcwd() + f'{directory_of_account}/{file}', f'{account}/{file}')
-
-                                # Mark uploaded file as published
-                                disk.publish(f'{account}/{file}')
-
-                                public_url = get_uploaded_file_url(f'{account}/{file}')
-                                data_to_db[account]['path_photo'].append(public_url)
-                        except:
+                                load_and_save(disk, account, directory_of_account, file, 'path_photo')
+                        except Exception as e:
+                            log.logger.warning(e)
                             log.logger.warning(f'Account {account} has no photo to append it to database')
 
                         try:
                             # Extract text from image
                             image = imagehandle.ImageHandling(os.getcwd() + f'{directory_of_account}/{file}')
                             text = image.extract_text_from_image()
+
                             data_to_db[account]['path_text'].append(text)
-                        except:
-                            data_to_db[account]['path_text'].append('empty')
-                            log.logger.warning(f'Account {account} has no text on photo to drag it')
+                        except Exception as e:
+                            log.logger.warning(e)
+                            log.logger.warning(f'Account {account} has no text on photo to drag it. It will store empty in field instead')
 
                     # Handling video files
                     elif file.endswith('.mp4'):
                         try:
                             if check_refilling_of_yandex_disk(file, os.getcwd() + directory_of_account):
-                                # Upload video files into yandex disk
-                                upload_file(os.getcwd() + f'{directory_of_account}/{file}', f'{account}/{file}')
-
-                                # Mark uploaded files as published
-                                disk.publish(f'{account}/{file}')
-
-                                public_url = get_uploaded_file_url(f'{account}/{file}')
-                                data_to_db[account]['path_video'].append(public_url)
+                                load_and_save(disk, account, directory_of_account, file, 'path_video')
                             else:
                                 log.logger.warning('Yandex disk is refilled')
+
+                                # If disk is refilled then new token will be generated and loading will continue
+                                db_social_services.update_status_of_yadisk_token('yandex_tokens', yadisk_conf.TOKEN)
                                 yadisk_conf.TOKEN = db_social_services.get_new_yadisk_token('yandex_tokens')
-                                # Upload video files into yandex disk
-                                upload_file(os.getcwd() + f'{directory_of_account}/{file}', f'{account}/{file}')
 
-                                # Mark uploaded files as published
-                                disk.publish(f'{account}/{file}')
-
-                                public_url = get_uploaded_file_url(f'{account}/{file}')
-                                data_to_db[account]['path_video'].append(public_url)
-                        except:
+                                load_and_save(disk, account, directory_of_account, file, 'path_video')
+                        except Exception as e:
+                            log.logger.warning(e)
                             log.logger.warning(f'Account {account} has no video to drag it')
                     else:
                         continue
@@ -261,7 +261,8 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                     # Empty space inside of structure which stores elements of collection
                     collection_to_send.clear()
                     data_to_db.clear()
-                except:
+                except Exception as e:
+                    log.logger.warning(e)
                     log.logger.warning(f'There is a problem with adding collection {collection_to_send}')
 
             if os.path.exists(os.getcwd() + f'/{account}'):
@@ -294,18 +295,16 @@ def get_data_from_db():
 def chunks_processing(instagram_accounts, credentials, proxies):
     """ Divides instagram accounts into chunks and launch it on 5 flows. """
 
-    global db_imas, db_attachments, db_social_services
-
     # Here should be 5 streams
     # that's why let's divide
     # instagram_accounts/credentials/proxies into 5 parts
 
     flows = {
         1: {'accounts': '', 'credentials': '', 'proxy': ''},
-        2: {'accounts': '', 'credentials': '', 'proxy': ''},
-        3: {'accounts': '', 'credentials': '', 'proxy': ''},
-        4: {'accounts': '', 'credentials': '', 'proxy': ''},
-        5: {'accounts': '', 'credentials': '', 'proxy': ''},
+        # 2: {'accounts': '', 'credentials': '', 'proxy': ''},
+        # 3: {'accounts': '', 'credentials': '', 'proxy': ''},
+        # 4: {'accounts': '', 'credentials': '', 'proxy': ''},
+        # 5: {'accounts': '', 'credentials': '', 'proxy': ''},
     }
 
     # Number of streams
@@ -321,8 +320,8 @@ def chunks_processing(instagram_accounts, credentials, proxies):
     procs = []
 
     # Algorithm which split instagram_accounts into equivalent chunks
-    for start in range(0, len(instagram_accounts), chunk):
-        accounts_set.append(instagram_accounts[start:start + chunk])
+    for _start in range(0, len(instagram_accounts), chunk):
+        accounts_set.append(instagram_accounts[_start:_start + chunk])
 
     def fill_flows(object: [tuple, list], obj_name: str) -> None:
         for num, lst in enumerate(object):
@@ -357,15 +356,8 @@ def chunks_processing(instagram_accounts, credentials, proxies):
 
 
 def start():
-    global db_imas, db_attachments, db_social_services, disk
     instagram_accounts, credentials, proxies = get_data_from_db()
     chunks_processing(instagram_accounts, credentials, proxies)
-
-    if not yadisk_conf.TOKEN:
-        yadisk_conf.TOKEN = db_social_services.get_new_yadisk_token('yandex_tokens')
-
-    # Initial settings for YaDisk
-    disk = yadisk.YaDisk(token=yandex_disk_configuration['TOKEN'])
 
 
 if __name__ == '__main__':
