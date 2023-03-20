@@ -301,10 +301,10 @@ def chunks_processing(instagram_accounts, credentials, proxies):
 
     flows = {
         1: {'accounts': '', 'credentials': '', 'proxy': ''},
-        # 2: {'accounts': '', 'credentials': '', 'proxy': ''},
-        # 3: {'accounts': '', 'credentials': '', 'proxy': ''},
-        # 4: {'accounts': '', 'credentials': '', 'proxy': ''},
-        # 5: {'accounts': '', 'credentials': '', 'proxy': ''},
+        2: {'accounts': '', 'credentials': '', 'proxy': ''},
+        3: {'accounts': '', 'credentials': '', 'proxy': ''},
+        4: {'accounts': '', 'credentials': '', 'proxy': ''},
+        5: {'accounts': '', 'credentials': '', 'proxy': ''},
     }
 
     # Number of streams
