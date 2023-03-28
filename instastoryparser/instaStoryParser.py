@@ -5,20 +5,22 @@ import shutil
 
 from multiprocessing import Process
 from instagramstories import settings
+from instagramstories.logs.logs_config import log
 from instagramstories.yadisk_hanlde import yadisk_conf
 from instagramstories.imagehandling import imagehandle
 from instagramstories.instaloader_init import loader_init
-from instagramstories.logs.logs_config import LoggerHandle
+from instagramstories.file_zipper.zip_files import ZipVideoFile
 from instagramstories.db_init.database import MariaDataBase, ClickHouseDatabase
 from instagramstories.yadisk_hanlde.yadisk_conf import yandex_disk_configuration
 from instagramstories.yadisk_hanlde.yadisk_module import create_folder, upload_file, get_uploaded_file_url
 
 
-log = LoggerHandle()
-log.logger_config()
+def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies) -> None:
 
+    if not credential:
+        log.logger.warning(f'FLOW {flow_number} HAS NO CREDENTIALS')
+        return
 
-def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies):
     def login_handle() -> None:
         """ Maintaining presence in system.
             While we logged in we can parse data,
@@ -31,9 +33,13 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
 
         try:
             # Login into account
-            login(username, password)
-            # Collect StoryItems while being logged-in
-            collect_data()
+            if login(username, password):
+                # Collect StoryItems while being logged-in
+                is_logged = collect_data()
+                if not is_logged:
+                    return
+            else:
+                return
         except Exception as e:
             log.logger.warning(e)
             log.logger.warning(f'Probably {credential} is blocked')
@@ -64,7 +70,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
 
             loader_init.loader.context._session.proxies = set_proxies
 
-            signin.sign_in()
+            return signin.sign_in()
         except Exception as e:
             log.logger.warning(e)
             log.logger.warning(f'Account {username} might be restricted')
@@ -123,14 +129,21 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
         def load_and_save(_disk, _account, _directory_of_account: str, _file: str, key: str) -> None:
             """ Uploading files into Yandex disk and saves public paths to collection """
 
-            # Upload image files into yandex disk
-            upload_file(os.getcwd() + f'{_directory_of_account}/{_file}', f'{_account}/{_file}')
+            if _file.endswith('.mp4'):
+                # Compressing video file
+                video = ZipVideoFile(os.getcwd() + f'{_directory_of_account}/{_file}', _file)
+                _file = video.resize_video_file()
 
-            # Mark uploaded file as published
-            _disk.publish(f'{_account}/{_file}')
+            # This means that only compressed video files allowed to be uploaded
+            if _file.endswith('_vid.mp4') or _file.endswith('.jpg'):
+                # Upload image files into yandex disk
+                upload_file(os.getcwd() + f'{_directory_of_account}/{_file}', f'{_account}/{_file}')
 
-            public_url = get_uploaded_file_url(f'{_account}/{_file}')
-            data_to_db[_account][key].append(public_url)
+                # Mark uploaded file as published
+                _disk.publish(f'{_account}/{_file}')
+
+                public_url = get_uploaded_file_url(f'{_account}/{_file}')
+                data_to_db[_account][key].append(public_url)
 
         if not instagram_accounts:
             log.logger.warning('There is no account to parse!')
@@ -158,6 +171,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             except Exception as e:
                 log.logger.warning(e)
                 log.logger.warning(f'There is an error while loading data from {account}')
+                return
 
             try:
                 # Creates empty folder if there haven't been downloaded any stories
@@ -251,7 +265,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             log.logger.warning(f'Data to db {data_to_db}')
             log.logger.warning(f'Collection to send {collection_to_send}')
 
-            if accounts_counter % 3 == 0 and len(collection_to_send) > 0:
+            if len(collection_to_send) > 0:
                 try:
                     # Migrate
                     migration_to_attachments(collection_to_send)
@@ -273,7 +287,8 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             accounts_counter += 1
 
     # Maintain parser log-in and collecting data logic
-    login_handle()
+    if not login_handle():
+        return
 
 
 def get_data_from_db():
@@ -301,10 +316,10 @@ def chunks_processing(instagram_accounts, credentials, proxies):
 
     flows = {
         1: {'accounts': '', 'credentials': '', 'proxy': ''},
-        2: {'accounts': '', 'credentials': '', 'proxy': ''},
-        3: {'accounts': '', 'credentials': '', 'proxy': ''},
-        4: {'accounts': '', 'credentials': '', 'proxy': ''},
-        5: {'accounts': '', 'credentials': '', 'proxy': ''},
+        # 2: {'accounts': '', 'credentials': '', 'proxy': ''},
+        # 3: {'accounts': '', 'credentials': '', 'proxy': ''},
+        # 4: {'accounts': '', 'credentials': '', 'proxy': ''},
+        # 5: {'accounts': '', 'credentials': '', 'proxy': ''},
     }
 
     # Number of streams

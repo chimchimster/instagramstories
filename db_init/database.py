@@ -1,14 +1,9 @@
-from clickhouse_driver import Client
-
 from typing import Optional, List
-
+from clickhouse_driver import Client
 from instagramstories import settings
 from mysql.connector import connect, Error
 
-from instagramstories.logs.logs_config import LoggerHandle
-
-# log = LoggerHandle()
-# log.logger_config()
+from instagramstories.logs.logs_config import log
 
 
 def db_decorator(func):
@@ -23,8 +18,7 @@ def db_decorator(func):
         try:
             result = func(*args, connection=con, **kwargs)
         except Error as e:
-            # log.logger.warning(e, 'SQL Failed!')
-            pass
+            log.logger.warning(e, 'SQL Failed!')
         else:
             con.commit()
             return result

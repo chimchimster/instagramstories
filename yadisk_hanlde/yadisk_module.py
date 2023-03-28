@@ -1,10 +1,7 @@
 import requests
 from . import yadisk_conf
 
-from instagramstories.logs.logs_config import LoggerHandle
-
-log = LoggerHandle()
-log.logger_config()
+from instagramstories.logs.logs_config import log
 
 
 def create_folder(path):

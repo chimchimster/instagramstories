@@ -3,10 +3,7 @@ import time
 
 import instaloader
 
-from instagramstories.logs.logs_config import LoggerHandle
-
-log = LoggerHandle()
-log.logger_config()
+from instagramstories.logs.logs_config import log
 
 loader = instaloader.Instaloader(storyitem_metadata_txt_pattern='', download_geotags=False)
 
@@ -16,24 +13,25 @@ class SignIn:
         self.username = username
         self.password = password
 
-    def sign_in(self):
+    def sign_in(self) -> bool:
         """ Signing to instagram account """
         try:
             # Login into account
             loader.login(self.username, self.password)
 
             log.logger.warning(f'Successfully logged in with account: {self.username}')
+            return True
         except Exception as e:
             log.logger.warning(e)
             log.logger.warning(f'Problem with signing to {self.username} account')
-            return
+            return False
 
 
 class LoadStoriesOfUser:
     def __init__(self, target: str) -> None:
         self.target = target
 
-    def download_stories_of_target(self, username: str, password: str, accounts_counter: int):
+    def download_stories_of_target(self, username: str, password: str, accounts_counter: int) -> None:
         """ Downloading stories of particular account.
             NOTE!
             accounts_counter is used for re-login each 10 parsed accounts
@@ -64,7 +62,6 @@ class LoadStoriesOfUser:
             time.sleep(8)
             try:
                 loader.download_stories(userids=[profile.userid])
-                log.logger.warning(f'Stories of {self.target} successfully downloaded')
             except Exception as e:
                 log.logger.warning(e)
                 log.logger.warning(f'Problem downloading {self.target} stories')
@@ -72,5 +69,4 @@ class LoadStoriesOfUser:
             time.sleep(15)
         except Exception as e:
             log.logger.warning(e)
-
             return
