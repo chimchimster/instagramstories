@@ -24,6 +24,8 @@ class SignIn:
         except Exception as e:
             log.logger.warning(e)
             log.logger.warning(f'Problem with signing to {self.username} account')
+            print(e)
+            print(f'Problem with signing to {self.username} account')
             return False
 
 
@@ -65,8 +67,11 @@ class LoadStoriesOfUser:
             except Exception as e:
                 log.logger.warning(e)
                 log.logger.warning(f'Problem downloading {self.target} stories')
+                print(e)
+                print(f'Problem downloading {self.target} stories')
 
             time.sleep(15)
         except Exception as e:
             log.logger.warning(e)
+            print(e)
             return

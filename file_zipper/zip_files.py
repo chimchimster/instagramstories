@@ -2,11 +2,15 @@ from moviepy.editor import VideoFileClip
 
 
 class ZipVideoFile:
+    """ Compresses video files """
+
     def __init__(self, file_path: str, filename: str) -> None:
         self.file_path = file_path
         self.filename = filename
 
-    def resize_video_file(self):
+    def resize_video_file(self) -> str:
+        """ Resized particular video file """
+
         video_clip = VideoFileClip(self.file_path)
 
         # Resizing old video

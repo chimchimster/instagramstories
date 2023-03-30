@@ -16,6 +16,7 @@ class ImageHandling:
             image = Image.open(self.path_to_image)
         except Exception as e:
             log.logger.warning(e)
+            print(e)
 
         text = ''
 
@@ -25,6 +26,7 @@ class ImageHandling:
             text = text.replace('\n', '')
         except Exception as e:
             log.logger.warning(e)
+            print(e)
 
         if text:
             try:
@@ -33,5 +35,6 @@ class ImageHandling:
                 text = ''.join(re.sub(r'[^a-zA-ZА-Яа-я0-9\s]', '', text)).strip()
             except Exception as e:
                 log.logger.warning(e)
+                print(e)
 
         return text if len(text) > 0 else 'empty'

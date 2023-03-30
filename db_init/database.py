@@ -19,6 +19,7 @@ def db_decorator(func):
             result = func(*args, connection=con, **kwargs)
         except Error as e:
             log.logger.warning(e, 'SQL Failed!')
+            print(e, 'SQL Failed!')
         else:
             con.commit()
             return result

@@ -3,6 +3,7 @@ import logging
 
 from logging.handlers import TimedRotatingFileHandler
 
+
 class LoggerHandle:
     # Set up logger
     insta_story_logger = logging.getLogger('INSTA_STORY_LOGGER')

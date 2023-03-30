@@ -19,6 +19,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
 
     if not credential:
         log.logger.warning(f'FLOW {flow_number} HAS NO CREDENTIALS')
+        print(f'FLOW {flow_number} HAS NO CREDENTIALS')
         return
 
     def login_handle() -> None:
@@ -43,6 +44,8 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
         except Exception as e:
             log.logger.warning(e)
             log.logger.warning(f'Probably {credential} is blocked')
+            print(e)
+            print(f'Probably {credential} is blocked')
 
     def mark_account_in_db(func):
         """ Marks account in database that it's already taken """
@@ -74,6 +77,8 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
         except Exception as e:
             log.logger.warning(e)
             log.logger.warning(f'Account {username} might be restricted')
+            print(e)
+            print(f'Account {username} might be restricted')
             return
 
     def collect_data() -> None:
@@ -108,6 +113,8 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             except Exception as e:
                 log.logger.warning(e)
                 log.logger.warning(f'Problem with migrating collection {collection_to_send}')
+                print(e)
+                print(f'Problem with migrating collection {collection_to_send}')
 
         def check_refilling_of_yandex_disk(_file: str, path_to_account: str) -> bool:
             """ Answers the question: how much free space in yandex disk is left? """
@@ -147,6 +154,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
 
         if not instagram_accounts:
             log.logger.warning('There is no account to parse!')
+            print('There is no account to parse!')
             return
 
         # Jump to media directory
@@ -159,6 +167,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             data_to_db[account] = {'path_video': [], 'path_photo': [], 'path_text': []}
 
             log.logger.warning(f'Working account {account}. Its counter = {accounts_counter}')
+            print(f'Working account {account}. Its counter = {accounts_counter}')
 
             directory_of_account = f'/{account}/stories'
             try:
@@ -171,6 +180,8 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             except Exception as e:
                 log.logger.warning(e)
                 log.logger.warning(f'There is an error while loading data from {account}')
+                print(e)
+                print(f'There is an error while loading data from {account}')
                 return
 
             try:
@@ -184,6 +195,8 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             except Exception as e:
                 log.logger.warning(e)
                 log.logger.warning(f'Empty folder for {account} have not been created')
+                print(e)
+                print(f'Empty folder for {account} have not been created')
 
             if os.listdir(os.getcwd() + directory_of_account):
                 # Check if uploaded files has mp4 or jpg formats
@@ -196,6 +209,8 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                     except Exception as e:
                         log.logger.warning(e)
                         log.logger.warning(f'Folder {account} has not been created')
+                        print(e)
+                        print(f'Folder {account} has not been created')
 
             if os.listdir(os.getcwd() + directory_of_account):
                 for file in os.listdir(os.getcwd() + directory_of_account):
@@ -207,6 +222,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                                 load_and_save(disk, account, directory_of_account, file, 'path_photo')
                             else:
                                 log.logger.warning('Yandex disk is refilled')
+                                print('Yandex disk is refilled')
 
                                 # If disk is refilled then new token will be generated and loading will continue
                                 db_social_services.update_status_of_yadisk_token('yandex_tokens', yadisk_conf.TOKEN)
@@ -216,6 +232,8 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                         except Exception as e:
                             log.logger.warning(e)
                             log.logger.warning(f'Account {account} has no photo to append it to database')
+                            print(e)
+                            print(f'Account {account} has no photo to append it to database')
 
                         try:
                             # Extract text from image
@@ -226,6 +244,8 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                         except Exception as e:
                             log.logger.warning(e)
                             log.logger.warning(f'Account {account} has no text on photo to drag it. It will store empty in field instead')
+                            print(e)
+                            print(f'Account {account} has no text on photo to drag it. It will store empty in field instead')
 
                     # Handling video files
                     elif file.endswith('.mp4'):
@@ -234,6 +254,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                                 load_and_save(disk, account, directory_of_account, file, 'path_video')
                             else:
                                 log.logger.warning('Yandex disk is refilled')
+                                print('Yandex disk is refilled')
 
                                 # If disk is refilled then new token will be generated and loading will continue
                                 db_social_services.update_status_of_yadisk_token('yandex_tokens', yadisk_conf.TOKEN)
@@ -243,6 +264,8 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                         except Exception as e:
                             log.logger.warning(e)
                             log.logger.warning(f'Account {account} has no video to drag it')
+                            print(e)
+                            print(f'Account {account} has no video to drag it')
                     else:
                         continue
 
@@ -263,7 +286,9 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
 
             # For debugging sending collections
             log.logger.warning(f'Data to db {data_to_db}')
+            print(f'Data to db {data_to_db}')
             log.logger.warning(f'Collection to send {collection_to_send}')
+            print(f'Collection to send {collection_to_send}')
 
             if len(collection_to_send) > 0:
                 try:
@@ -278,11 +303,14 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
                 except Exception as e:
                     log.logger.warning(e)
                     log.logger.warning(f'There is a problem with adding collection {collection_to_send}')
+                    print(e)
+                    print(f'There is a problem with adding collection {collection_to_send}')
 
             if os.path.exists(os.getcwd() + f'/{account}'):
                 # Recursively deletes directory and all files of account from media directory
                 shutil.rmtree(os.getcwd() + f'/{account}')
                 log.logger.warning(f'Directory {directory_of_account} successfully deleted')
+                print(f'Directory {directory_of_account} successfully deleted')
 
             accounts_counter += 1
 
