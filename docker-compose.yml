@@ -1,0 +1,11 @@
+version: "3.3"
+
+services:
+  stories:
+    build: .
+    restart: always
+    command: python3 ./main.py
+    env_file:
+      - .env
+
+
