@@ -1,19 +1,35 @@
+import os
+
+from dotenv import load_dotenv
 from typing import Optional, List
 from clickhouse_driver import Client
-from instagramstories import settings
 from mysql.connector import connect, Error
 
 from instagramstories.logs.logs_config import log
+
+
+def load_environment_variables():
+    """ Loads variables from .env file """
+
+    load_dotenv()
+    host = os.environ.get('SOCIAL_SERVICES_DB_HOST')
+    user = os.environ.get('SOCIAL_SERVICES_DB_USER')
+    password = os.environ.get('SOCIAL_SERVICES_DB_PASSWORD')
+
+    return host, user, password
 
 
 def db_decorator(func):
     """ Maintaining connection and execution of any operation to MariaDB """
 
     def wrapper(*args, **kwargs):
+
+        host, user, password = load_environment_variables()
+
         con = connect(
-            host=settings.social_services_db['host'],
-            user=settings.social_services_db['user'],
-            password=settings.social_services_db['password']
+            host=host,
+            user=user,
+            password=password,
         )
         try:
             result = func(*args, connection=con, **kwargs)

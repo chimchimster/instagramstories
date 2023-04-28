@@ -6,6 +6,6 @@ services:
     restart: always
     command: python3 ./main.py
     env_file:
-      - .env
+      - instastoryparser/.env
 
 

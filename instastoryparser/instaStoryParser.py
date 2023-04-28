@@ -3,8 +3,9 @@ import time
 import yadisk
 import shutil
 
+from dotenv import load_dotenv
 from multiprocessing import Process
-from instagramstories import settings
+
 from instagramstories.logs.logs_config import log
 from instagramstories.yadisk_hanlde import yadisk_conf
 from instagramstories.imagehandling import imagehandle
@@ -37,6 +38,7 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
             if login(username, password):
                 # Collect StoryItems while being logged-in
                 is_logged = collect_data()
+
                 if not is_logged:
                     return
             else:
@@ -319,14 +321,51 @@ def parse_instagram_stories(flow_number, instagram_accounts, credential, proxies
         return
 
 
+def load_environment_variables(host, port, user, password):
+    load_dotenv()
+    _host = os.environ.get(host)
+    _port = os.environ.get(port)
+    _user = os.environ.get(user)
+    _password = os.environ.get(password)
+
+    return _host, _port, _user, _password
+
+
 def get_data_from_db():
     """ Retrieving whole pool of data from database. """
 
     global db_attachments, db_imas, db_social_services
 
-    db_imas = ClickHouseDatabase('imas', settings.imas_db['host'], settings.imas_db['port'], settings.imas_db['user'], settings.imas_db['password'])
+    db_imas_host, db_imas_port, db_imas_user, db_imas_password = load_environment_variables(
+        'IMAS_DB_HOST',
+        'IMAS_DB_PORT',
+        'IMAS_DB_USER',
+        'IMAS_DB_PASSWORD',)
+
+    db_attachments_host, db_attachments_port, db_attahcments_user, db_attachments_password = load_environment_variables(
+        'ATTACHMENTS_DB_HOST',
+        'ATTACHMENTS_DB_PORT',
+        'ATTACHMENTS_DB_USER',
+        'ATTACHMENTS_DB_PASSWORD',
+    )
+
+    db_imas = ClickHouseDatabase(
+        'imas',
+        db_imas_host,
+        db_imas_port,
+        db_imas_user,
+        db_imas_password,
+    )
+
+    db_attachments = ClickHouseDatabase(
+        'recognition',
+        db_attachments_host,
+        db_attachments_port,
+        db_attahcments_user,
+        db_attachments_password,
+    )
+
     db_social_services = MariaDataBase('social_services')
-    db_attachments = ClickHouseDatabase('recognition', settings.attachments_db['host'], settings.attachments_db['port'], settings.attachments_db['user'], settings.attachments_db['password'])
 
     accounts = [account[0] for account in db_imas.get_data_for_parse('resource_social')]
     credential = db_social_services.get_account_credentials('soc_accounts')
